@@ -1,0 +1,5 @@
+# See https://www.netiq.com/documentation/identity-manager-49/setup_linux/data/t4g0vb3joh0j.html for 
+# details on how to use this file
+
+
+AIE-CSV-Import-rl.conf -sp n0v3ll n0v3ll

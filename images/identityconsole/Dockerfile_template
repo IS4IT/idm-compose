@@ -1,0 +1,16 @@
+FROM ${VENDOR_REGISTRY}identityconsole:1.9.0.0000
+USER root
+WORKDIR /
+
+# fix timezone handling
+RUN microdnf -y install tzdata
+
+# Install a few useful tools
+RUN microdnf -y install less vi iputils net-tools
+
+# comment out obsolete parameter in edirapi.conf
+RUN sed -i -e 's/\(cp ${DATA_DIR}\/edirapi.conf\)/#\1/' \
+           -e '/cp ${DATA_DIR}\/edirapi.conf/a\ \tsed -e "s/^edir-hosts/#edir-hosts/" ${DATA_DIR}/edirapi.conf > ${CONF_DIR}/edirapi.conf' /opt/novell/eDirAPI/sbin/start.sh
+
+# forward setup log to docker log
+RUN sed -i -e '/^ *prepare_start_prerequisites *$/i tail -qFn0 /config/eDirAPI/var/log/container-startup.log /config/eDirAPI/var/log/edirapi.log 2>/dev/null &' /opt/novell/eDirAPI/sbin/start.sh

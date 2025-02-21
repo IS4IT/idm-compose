@@ -1,0 +1,14 @@
+FROM ${VENDOR_REGISTRY}sspr/sspr-webapp:4.8.0.1-533
+USER root
+WORKDIR /
+
+# fix outdated repo URLs
+COPY ubi.repo /etc/yum.repos.d/ubi.repo
+COPY RPM-GPG-KEY-redhat-release /etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+
+# fix timezone handling
+RUN microdnf -y install tzdata
+
+# Install a few useful tools
+RUN microdnf -y install less vi iputils net-tools procps
+

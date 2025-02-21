@@ -1,0 +1,16 @@
+shopt -s nullglob
+export LDAPTLS_REQCERT=never 
+for ldif in /config/idm/mountfiles/*ldif ; do
+    if ! grep -qE "^changetype: " "${ldif}"; then
+        FLAGS="-a"
+    fi 
+    echo "Importing ${ldif}"
+    rm -f "${ldif}_skipped" #>/dev/null 2>&1
+    /opt/novell/eDirectory/bin/ldapmodify -H ldaps://127.0.0.1:$PORT_LDAPS -D cn=admin,ou=sa,o=system -w "$COMMON_PW" -S "${ldif}_skipped" -c $FLAGS -f "${ldif}" >/dev/null
+    mv -f "${ldif}" "${ldif}_imported"
+done
+for sch in /config/idm/mountfiles/*sch ; do
+    echo "Importing ${sch}"
+    /opt/novell/eDirectory/bin/ndssch -h 127.0.0.1 -p "$COMMON_PW" admin.sa.system "${sch}" >/dev/null
+    mv -f "${sch}" "${sch}_imported"
+done

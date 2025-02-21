@@ -1,0 +1,7 @@
+FROM ${VENDOR_REGISTRY}formrenderer:idm-4.10.0-533
+USER root
+WORKDIR /
+
+# add server cert if available(also copy Dockerfile to prevent copy error when cert.zip does not exist)
+ADD Dockerfile cert.zip* /idm/user_application/
+RUN rm -f /idm/user_application/Dockerfile

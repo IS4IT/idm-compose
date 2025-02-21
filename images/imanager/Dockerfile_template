@@ -1,0 +1,25 @@
+FROM hub.is4it.de/vendor/netiq/idm/imanager:3.2.6-p3
+USER root
+WORKDIR /
+
+# fix plugin install script not finding log4j 1.2x 
+ADD https://archive.apache.org/dist/logging/log4j/1.2.17/log4j-1.2.17.tar.gz /tmp
+RUN tar -xzvf /tmp/log4j-1.2.17.tar.gz apache-log4j-1.2.17/log4j-1.2.17.jar
+RUN sed -i -e 's|"\${IMAN_LIB}"/log4j-1.2.17.jar|/apache-log4j-1.2.17/log4j-1.2.17.jar|' /opt/novell/iManager/bin/install_plugins.sh
+
+# fix timezone handling
+RUN zypper install -y -l timezone
+
+# Install a few useful tools
+RUN zypper install -y -l less vi grep iputils net-tools
+
+# add IDM related plugins
+ADD "https://nu.novell.com/designer/imanager_plugins/IDM4.8.5.0100/IDMPlugins_IMAN_3_2_IDM_4_8_5_0100.npm" /var/opt/novell/iManager/nps/packages/
+ADD "https://nu.novell.com/designer/imanager_plugins/eDir926/eDir_IMANPlugins.npm" /var/opt/novell/iManager/nps/packages/
+ADD "https://nu.novell.com/designer/imanager_plugins/IDM4.8.3/PwdManagementPlugins_IMAN_3_2.npm" /var/opt/novell/iManager/nps/packages/
+ADD "https://nu.novell.com/designer/imanager_plugins/eDir926/nmas.npm" /var/opt/novell/iManager/nps/packages/
+ADD "https://nu.novell.com/designer/imanager_plugins/eDir926/pki.npm" /var/opt/novell/iManager/nps/packages/
+
+# add server cert if available(also copy Dockerfile to prevent copy error when .p12 does not exist)
+ADD --chown=novlwww:novlwww Dockerfile .p12* /var/opt/novell/novlwww/
+RUN rm -f /var/opt/novell/novlwww/Dockerfile

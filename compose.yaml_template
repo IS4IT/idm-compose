@@ -1,0 +1,299 @@
+name: ${STACKNAME}
+
+# common settings for all containers
+x-common: &common
+  domainname: idm.local
+  extra_hosts: 
+    idv.idm.local: $IP_IDV
+    rl.idm.local: $IP_RL
+    idcon.idm.local: $IP_IDCON
+    iman.idm.local: $IP_IMAN
+    osp.idm.local: $IP_OSP
+    apps.idm.local: $IP_APPS
+    forms.idm.local: $IP_FORMS
+    sspr.idm.local: $IP_SSPR
+    db.idm.local: $IP_DB
+    # mq.idm.local: $IP_MQ
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+  
+services:
+
+  idv:
+    <<: *common
+    # image: ${IMAGE_PREFIX}/identityengine:idm-4.10.0-533
+    build: 
+      context: images/identityengine
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    restart: unless-stopped
+    stop_grace_period: 300s
+    environment:
+      TZ: Europe/Berlin
+      SILENT_INSTALL_FILE: /config/silent.properties
+      debug: "n"
+    ports:
+      - "$PORT_LDAP:$PORT_LDAP"
+      - "$PORT_LDAPS:$PORT_LDAPS"
+      - "$PORT_IMON:$PORT_IMON"
+      - "$PORT_IMONS:$PORT_IMONS"
+    hostname: idv
+    networks:
+      default:
+        ipv4_address: $IP_IDV
+    volumes:
+      - config:/config
+      - trace:/var/log/idm
+      - cache:/var/idm/cache
+
+  rl:
+    <<: *common
+    # image: ${IMAGE_PREFIX}/remoteloader:idm-4.10.0-533
+    build: 
+      context: images/remoteloader
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    profiles: ${RL_PROFILES}
+    restart: unless-stopped
+    stop_grace_period: 100s
+    environment:
+      TZ: Europe/Berlin
+      RL_DRIVER_STARTUP: StartupRL.txt
+    hostname: rl
+    networks:
+      default:
+        ipv4_address: $IP_RL
+    volumes:
+      - config:/config
+      - trace:/var/log/idm
+      - cache:/var/idm/cache
+  
+  idcon:
+    <<: *common
+    # image: ${IMAGE_PREFIX}/identityconsole:1.9.0.0000
+    build:
+      context: images/identityconsole
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    profiles: ${IDCON_PROFILES}
+    restart: on-failure:5
+    environment:
+      TZ: Europe/Berlin
+      ACCEPT_EULA: "Y"
+      DEBUG_MODE: false
+    ports:
+      - "$PORT_IDCON:$PORT_IDCON"
+    hostname: idcon
+    networks:
+      default:
+        ipv4_address: $IP_IDCON
+    volumes:
+      - config:/config
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 200M
+          pids: 300
+
+  iman:
+    <<: *common
+    # image: ${IMAGE_PREFIX}/imanager:3.2.6-p3
+    build:
+      context: images/imanager
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    profiles: ${IMAN_PROFILES}
+    restart: on-failure:5
+    environment:
+      TZ: Europe/Berlin
+    ports:
+      - "$PORT_IMAN:8443"
+    hostname: iman
+    networks:
+      default:
+        ipv4_address: $IP_IMAN
+    volumes:
+      - config:/config
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1000M
+          pids: 300
+
+  db:
+    <<: *common
+    # Using the official platform-specific image
+    image: postgres:14.14
+    profiles: ${APPS_PROFILES}
+    restart: unless-stopped
+    cpuset: '1'
+    pids_limit: 300
+    stop_grace_period: 180s
+    environment:
+      TZ: Europe/Berlin
+      POSTGRES_PASSWORD: $COMMON_PW
+    ports:
+      - "$PORT_DB:5432"
+    hostname: db
+    networks:
+      default:
+        ipv4_address: $IP_DB
+    volumes:
+      - db:/var/lib/postgresql/data
+
+  osp:
+    <<: *common
+    # image: ${IMAGE_PREFIX}/osp:idm-4.10.0-533
+    build:
+      context: images/osp
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    depends_on:
+      - idv
+    profiles: ${APPS_PROFILES}
+    restart: unless-stopped
+    stop_grace_period: 180s
+    environment:
+      TZ: Europe/Berlin
+      SILENT_INSTALL_FILE: /config/silent.properties
+      debug: n
+    ports:
+      - '$PORT_OSP:$PORT_OSP'
+    hostname: osp
+    networks:
+      default:
+        ipv4_address: $IP_OSP
+    volumes:
+      - config:/config
+
+  # mq:
+  #   <<: *common
+  #   image: ${IMAGE_PREFIX}/activemq:idm-4.10.0-533
+  #   platform: linux/amd64
+  #   profiles: ${FANOUT_PROFILES}
+  #   restart: unless-stopped
+  #   stop_grace_period: 100s
+  #   env_file:
+  #     - ./config/silent.properties
+  #   environment:
+  #     TZ: Europe/Berlin
+  #     debug: n
+  #   hostname: mq
+  #   networks:
+  #     default:
+  #       ipv4_address: $IP_MQ
+  #   volumes:
+  #     - config:/config
+
+  apps:
+    <<: *common
+    # image: ${IMAGE_PREFIX}/identityapplication:idm-4.10.0-533
+    build:
+      context: images/userapp
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    depends_on:
+      - db
+      - osp
+    profiles: ${APPS_PROFILES}
+    restart: on-failure:5
+    stop_grace_period: 300s
+    cpuset: '2'
+    pids_limit: 300
+    environment:
+      TZ: Europe/Berlin
+      SILENT_INSTALL_FILE: /config/silent.properties
+      debug: n
+    ports:
+      - "$PORT_APPS:$PORT_APPS"
+    hostname: apps
+    networks:
+      default:
+        ipv4_address: $IP_APPS
+    volumes:
+      - config:/config
+
+  forms:
+    <<: *common
+    # image: ${IMAGE_PREFIX}/formrenderer:idm-4.9.0-580
+    build:
+      context: images/forms
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    depends_on:
+      - apps
+    profiles: ${APPS_PROFILES}
+    restart: on-failure:5
+    stop_grace_period: 180s
+    cpuset: '1'
+    pids_limit: 300
+    environment:
+      TZ: Europe/Berlin
+      SILENT_INSTALL_FILE: /config/silent.properties
+      debug: n
+    ports:
+      - "$PORT_FORMS:$PORT_FORMS"
+    hostname: forms
+    networks:
+      default:
+        ipv4_address: $IP_FORMS
+    volumes:
+      - config:/config
+
+  sspr:
+    <<: *common
+    # image: ${IMAGE_PREFIX}/sspr/sspr-webapp:4.8.0.1-533
+    build:
+      context: images/sspr/sspr-webapp
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    depends_on:
+      - osp
+    profiles: ${APPS_PROFILES}
+    restart: on-failure:5
+    stop_grace_period: 180s
+    cpuset: '1'
+    pids_limit: 300
+    env_file: config/silent.properties
+    environment:
+      TZ: Europe/Berlin
+      SILENT_INSTALL_FILE: /tmp/silent.properties
+      debug: n
+    ports:
+      - "$PORT_SSPR:8443"
+    hostname: sspr
+    networks:
+      default:
+        ipv4_address: $IP_SSPR
+    volumes:
+      - sspr:/config
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: $DOCKER_HOST_BINDING
+    attachable: true
+    ipam:
+      config:
+        - subnet: $SUBNET
+
+volumes:
+  config:
+  trace:
+  cache:
+  db:
+  sspr:

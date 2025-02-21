@@ -1,0 +1,459 @@
+ 
+###
+# Indicates whether you want to configure the silent properties file for Docker containers.
+### 
+DOCKER_CONTAINER="y"
+ 
+###
+# Azure Cloud
+### 
+AZURE_CLOUD="n"
+ 
+###
+# Indicates whether the existing Identity Manager components need to be upgraded.
+### 
+UPGRADE_IDM="n"
+ 
+###
+# Indicates whether we need to prompt eDir API prompts
+### 
+EDIRAPI_PROMPT_NEEDED="n"
+ 
+###
+# Indicates if Advanced Edition was selected
+### 
+IS_ADVANCED_EDITION="true"
+ 
+###
+# Indicates if user wants to set a common password.
+### 
+IS_COMMON_PASSWORD="y"
+ 
+###
+# Common Password
+### 
+COMMON_PASSWORD="$COMMON_PW"
+ 
+###
+# Indicates Identity Manager engine to be installed.
+### 
+INSTALL_ENGINE="true"
+ 
+###
+# Indicates Identity Vault to be installed.
+### 
+INSTALL_IDVAULT="true"
+ 
+###
+# NDS var folder location
+### 
+ID_VAULT_VARDIR="/var/opt/novell/eDirectory"
+ 
+###
+# NDS data location
+### 
+ID_VAULT_DIB="/var/opt/novell/eDirectory/data/dib"
+ 
+###
+# NDS configuration file with path
+### 
+ID_VAULT_CONF="/etc/opt/novell/eDirectory/conf/nds.conf"
+ 
+###
+# Identity Vault host address
+### 
+ID_VAULT_HOST="idv.idm.local"
+ 
+###
+# Indicates whether it is for a new tree or an existing tree.
+### 
+TREE_CONFIG="newtree"
+ 
+###
+# Identity Vault Administrator password
+### 
+ID_VAULT_PASSWORD="$COMMON_PW"
+ 
+###
+# Server Context
+### 
+ID_VAULT_SERVER_CONTEXT="servers.system"
+ 
+###
+# ID Vault Tree name
+### 
+ID_VAULT_TREENAME="$TREENAME"
+ 
+###
+# ID Vault Server name
+### 
+ID_VAULT_SERVERNAME="idv"
+ 
+###
+# Identity Vault Administrator in cn format ex: cn=admin,ou=sa,o=system
+### 
+ID_VAULT_ADMIN_LDAP="cn=admin,ou=sa,o=system"
+ 
+###
+# ID Vault Administrator ex: admin.sa.system
+### 
+ID_VAULT_ADMIN="admin.sa.system"
+ 
+###
+# RSA key size
+### 
+ID_VAULT_RSA_KEYSIZE="4096"
+ 
+###
+# EC curve
+### 
+ID_VAULT_EC_CURVE="P384"
+ 
+###
+# Certificate lifetime
+### 
+ID_VAULT_CA_LIFE="10"
+ 
+###
+# NCP port
+### 
+ID_VAULT_NCP_PORT="524"
+ 
+###
+# LDAP non SSL port
+### 
+ID_VAULT_LDAP_PORT="$PORT_LDAP"
+ 
+###
+# LDAP SSL port
+### 
+ID_VAULT_LDAPS_PORT="$PORT_LDAPS"
+ 
+###
+# Identity Vault HTTP port
+### 
+ID_VAULT_HTTP_PORT="$PORT_IMON"
+ 
+###
+# Identity Vault HTTPS port
+### 
+ID_VAULT_HTTPS_PORT="$PORT_IMONS"
+ 
+###
+# Identity Vault driver set name. Ex: driverset1
+### 
+ID_VAULT_DRIVER_SET="driverset1"
+ 
+###
+# Identity Vault driver set deploy context. Ex: o=system
+### 
+ID_VAULT_DEPLOY_CTX="o=system"
+ 
+###
+# Indicates identity application to be installed
+### 
+INSTALL_UA="true"
+ 
+###
+# Indicates OSP to be installed.
+### 
+INSTALL_OSP="true"
+ 
+###
+# Indicates SSPR to be installed
+### 
+INSTALL_SSPR="true"
+ 
+###
+# Indicates Apache ActiveMQ to be installed
+### 
+INSTALL_ACTIVEMQ="false"
+ 
+###
+# ActiveMQ Server
+### 
+ACTIVEMQ_SERVER_HOST="mq.idm.local"
+ 
+###
+# ActiveMQ Server TCP Port
+### 
+ACTIVEMQ_SERVER_TCP_PORT="61616"
+EXTERNAL_SSO_SERVER="y"
+ 
+###
+# One SSO Server DNS/IP address
+### 
+SSO_SERVER_HOST="osp.idm.local"
+ 
+###
+# One SSO server SSL port
+### 
+SSO_SERVER_SSL_PORT="$PORT_OSP"
+ 
+###
+# OSP clients service password.
+### 
+SSO_SERVICE_PWD="$COMMON_PW"
+ 
+###
+# Master keystore Password
+### 
+MASTER_KEYSTORE_PWD="$COMMON_PW"
+ 
+###
+# OSP keystore password
+### 
+OSP_KEYSTORE_PWD="$COMMON_PW"
+ 
+###
+# Use custom container as root container for users and groups
+### 
+ENABLE_CUSTOM_CONTAINER_CREATION="n"
+ 
+###
+# OSP custom login screen name
+### 
+OSP_CUSTOM_NAME="Identity Access"
+ 
+###
+# User search container DN
+### 
+USER_CONTAINER="o=data"
+ 
+###
+# Admin search container DN
+### 
+ADMIN_CONTAINER="o=data"
+ 
+###
+# Application server HTTP port
+### 
+TOMCAT_HTTP_PORT="8180"
+ 
+###
+# IDM keystore Password
+### 
+IDM_KEYSTORE_PWD="$COMMON_PW"
+ 
+###
+# Indicates if you want to use a custom certificate for OSP
+### 
+CUSTOM_OSP_CERTIFICATE="y"
+ 
+###
+# OSP tomcat keystore file with Subject Alternate Name
+### 
+OSP_COMM_TOMCAT_KEYSTORE_FILE="/config/data/keys.pfx"
+ 
+###
+# OSP tomcat keystore password
+### 
+OSP_COMM_TOMCAT_KEYSTORE_PWD="$COMMON_PW"
+FOR_SSPR_CONTAINER="y"
+ 
+###
+# SSPR server SSL port
+### 
+SSPR_SERVER_SSL_PORT="$PORT_SSPR"
+ 
+###
+# Indicates if we need to use custom certificate for SSPR
+### 
+CUSTOM_SSPR_CERTIFICATE="y"
+ 
+###
+# SSPR tomcat keystore file with Subject Alternate Name
+### 
+SSPR_COMM_TOMCAT_KEYSTORE_FILE="/config/data/keys.pfx"
+ 
+###
+# SSPR tomcat keystore password
+### 
+SSPR_COMM_TOMCAT_KEYSTORE_PWD="$COMMON_PW"
+ 
+###
+# SSPR Server DNS/IP address
+### 
+SSPR_SERVER_HOST="sspr.idm.local"
+ 
+###
+# Application server HTTPS port
+### 
+TOMCAT_HTTPS_PORT="$PORT_SSPR"
+ 
+###
+# SSPR tomcat keystore password
+### 
+SSPR_COMM_TOMCAT_KEYSTORE_PWD="$COMMON_PW"
+
+###
+# SSPR Configuration password
+### 
+CONFIGURATION_PWD="$COMMON_PW"
+ 
+###
+# One SSO server port
+### 
+SSO_SERVER_PORT="8180"
+ 
+###
+# Identity Applications Admin Name. Ex: cn=uaadmin,ou=sa,o=data
+### 
+UA_ADMIN="cn=appadmin,ou=sa,o=data"
+ 
+###
+# Identity Applications Admin Password
+### 
+UA_ADMIN_PWD="$COMMON_PW"
+ 
+###
+# Application server DNS/IP address
+### 
+UA_SERVER_HOST="apps.idm.local"
+ 
+###
+# Identity Applications server SSL port
+### 
+UA_SERVER_SSL_PORT="$PORT_APPS"
+ 
+###
+# Indicates if Identity Manager drivers have to be created
+### 
+UA_CREATE_DRIVERS="y"
+ 
+###
+# User Application driver name
+### 
+UA_DRIVER_NAME="User Application Driver"
+ 
+###
+# Indicates if this is clustering environment.
+### 
+UA_CLUSTER_ENABLED="n"
+ 
+###
+# User Application Workflow Engine ID
+### 
+UA_WORKFLOW_ENGINE_ID="IDMLOCAL"
+ 
+###
+# Indicates the Identity Applications and Workflow Engine database platform. The supported values are postgres, oracle, and mssql)
+### 
+UA_WFE_DB_PLATFORM_OPTION="postgres"
+ 
+###
+# Indicates if postgres db have to be installed or not
+### 
+INSTALL_PG_DB="n"
+ 
+###
+# Identity Applications and Workflow Engine database host
+### 
+UA_WFE_DB_HOST="db.idm.local"
+ 
+###
+# Identity Applications and Workflow Engine database port
+### 
+UA_WFE_DB_PORT="5432"
+ 
+###
+# Identity Applications database name
+### 
+UA_DATABASE_NAME="idmuserappdb"
+ 
+###
+# Workflow Engine database name
+### 
+WFE_DATABASE_NAME="igaworkflowdb"
+ 
+###
+# Identity Applications and Workflow Engine database username
+### 
+UA_WFE_DATABASE_USER="idmadmin"
+ 
+###
+# Identity Applications and Workflow Engine database password
+### 
+UA_WFE_DATABASE_PWD="$COMMON_PW"
+ 
+###
+# Identity Applications and Workflow Engine database JDBC driver jar file
+### 
+UA_WFE_DB_JDBC_DRIVER_JAR="/opt/netiq/idm/apps/tomcat/lib/postgresql-42.6.1.jar"
+ 
+###
+# Identity Applications and Workflow Engine database administrator password for user postgres
+### 
+UA_WFE_DATABASE_ADMIN_PWD="$COMMON_PW"
+ 
+###
+# Indicates by when the Database Schema creation for Identity Applications and Workflow Engine would happen. The supported values are now, startup or file
+### 
+UA_WFE_DB_CREATE_OPTION="now"
+ 
+###
+# Installer will create tables in a new database or update/migrate from an existing database for Identity Applications. Supported values are new and exist.
+### 
+UA_DB_NEW_OR_EXIST="new"
+ 
+###
+# Installer will create tables in a new database or update/migrate from an existing database for Workflow Engine. Supported values are new and exist.
+### 
+WFE_DB_NEW_OR_EXIST="new"
+ 
+###
+# Root container DN
+### 
+ROOT_CONTAINER="o=data"
+ 
+###
+# Group search root container DN
+### 
+GROUP_ROOT_CONTAINER="o=data"
+ 
+###
+# Identity Applications context name
+### 
+UA_APP_CTX="IDMProv"
+ 
+###
+# Workflow Engine context name
+### 
+WFE_APP_CTX="workflow"
+ 
+###
+# Indicates if you want to use a custom certificate for Identity Applications
+### 
+CUSTOM_UA_CERTIFICATE="y"
+ 
+###
+# Identity Applications tomcat keystore file with Subject Alternate Name
+### 
+UA_COMM_TOMCAT_KEYSTORE_FILE="/config/data/keys.pfx"
+ 
+###
+# Identity Applications tomcat keystore password
+### 
+UA_COMM_TOMCAT_KEYSTORE_PWD="$COMMON_PW"
+ 
+###
+# Form Renderer DNS/IP address
+### 
+FR_SERVER_HOST="forms.idm.local"
+ 
+###
+# NGINX port
+### 
+NGINX_HTTPS_PORT="$PORT_FORMS"
+ 
+###
+# Indicates whether we need to prompt Identity Reporting prompts
+### 
+RPT_PROMPT_NEEDED="n"
+ 
+### 
+# PWE: copy from host only setup idm container docs
+###
+SKIP_PORT_CHECK=1
+TOMCAT_SSL_KEYSTORE_PASS="$COMMON_PW"
+ 

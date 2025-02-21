@@ -1,0 +1,11 @@
+CREATE DATABASE idmuserappdb;
+CREATE DATABASE igaworkflowdb;
+CREATE DATABASE idmrptdb;
+CREATE DATABASE databasechangelog;
+
+CREATE USER idmadmin WITH ENCRYPTED PASSWORD '$COMMON_PW';
+
+GRANT ALL PRIVILEGES ON DATABASE idmuserappdb TO idmadmin;
+GRANT ALL PRIVILEGES ON DATABASE igaworkflowdb TO idmadmin;
+GRANT ALL PRIVILEGES ON DATABASE idmrptdb TO idmadmin;
+GRANT ALL PRIVILEGES ON DATABASE databasechangelog TO idmadmin;

@@ -1,0 +1,17 @@
+config/FormRenderer
+config/data/keys.pfx
+config/data/edirapi.conf
+config/data/SSPRConfiguration.xml
+config/data/.p12
+config/iManager
+config/silent.properties
+misc
+SSCert.pem
+compose.yaml
+sspr.sh
+server*
+test*
+images/imanager/.p12
+images/forms/cert.zip
+Dockerfile
+ca.*

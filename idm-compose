@@ -1,0 +1,434 @@
+#!/bin/bash
+{ # protect running script against edits
+
+PROGNAME=`basename $0`
+
+print_help() {
+    docker compose --help | sed -e "s/docker compose/$PROGNAME/g" \
+                                -e "s/multi-container applications/OpenText Identity Manager environments as containerized services/"
+    echo "
+$PROGNAME is a wrapper for 'docker compose', customized to the specific quirks and needs of
+creating OpenText Identity Manager environments as containerized services.
+
+$PROGNAME adds the 'init' and 'wipe' commands to create, initialize and cleanup containerized IDM environments.
+All other commands and their options are passed on to 'docker compose' unmodified.
+
+Please note that the 'up' command alone is not sufficient to create a new IDM environment.
+
+Examples:
+
+Create a new IDM environment using default parameters
+
+  $PROGNAME init
+
+Create a new IDM stack using specific parameters:
+
+  SUBNET=172.17.42.0/24 PORT_BASE=42000 TREENAME=DEV-TREE-IDM49 $PROGNAME init
+
+Start/pause/unpause/stop the whole IDM stack or individual containers
+
+  $PROGNAME start/pause/unpause/stop <service(s)>
+
+Monitor stack resources
+
+  $PROGNAME stats
+
+Print all containers in the stack
+
+  $PROGNAME ps -a
+
+Follow all container logs
+
+  $PROGNAME logs -f
+
+Open idv container log (colorized and with timstamps) in less
+
+  $PROGNAME --ansi=always logs -t idv | less
+
+Delete a stack, keeping only the persistent data volumes:
+
+  $PROGNAME down --rmi local
+
+Quickly wipe a stack including all data volumes and obsolete images:
+
+  $PROGNAME kill; $PROGNAME down -v --remove-orphans --rmi local
+"
+}
+
+if [ $# -eq 0 ] || [ $# -eq 1 ] && [[ "$*" =~ -?-h(elp)? ]] || [[ "$*" =~ (init|wipe)\ \ *-?-h(elp)? ]]; then
+    print_help
+    exit 0
+elif [[ "$*" =~ wipe ]]; then
+    if docker compose config -q; then
+        read -p "Kill and delete all containers, volumes and images for IDM stack $(docker compose config | grep -E "^name:" | cut -d " " -f 2-) ? "
+        if [[ $REPLY =~ ^[yY] ]]; then
+            COMPOSE_OPTS=${*//wipe/}
+            docker compose $COMPOSE_OPTS kill
+            docker compose $COMPOSE_OPTS down --volumes --remove-orphans --rmi local
+        fi
+    fi
+    exit $?
+elif [[ ! "$*" =~ init ]]; then
+    docker compose $*
+    exit $?
+elif [ ! -f compose.yaml_template ]; then
+    echo "No configuration data found. $PROGNAME must be run from inside a configuration folder."
+    exit 1
+fi
+
+[ -f $PROGNAME.conf ] && source $PROGNAME.conf
+
+COMPOSE_OPTS=${*//init/}
+[ -n "${COMPOSE_OPTS}" ] && echo "Executing docker compose with options: ${COMPOSE_OPTS}"
+
+# check requirements
+for command in openssl docker sed envsubst find cut tr keytool cut zip; do
+    if ! which $command >/dev/null ; then echo "$command not found, exiting..."; exit 1 ; fi
+done
+
+# sets a profile in config.yaml to effectively disable services
+# only services withtou any profile will be installed
+# syntax: JSON array e.g. ["disabled"]
+export IDCON_PROFILES=[""]          # idcon
+export RL_PROFILES=[""]             # rl
+export IMAN_PROFILES=["disabled"]           # iman
+export APPS_PROFILES=[""]           # apps db forms osp sspr
+export FANOUT_PROFILES=["disabled"] # mq fanout
+
+# Default parameters, can be overridden on the command line
+# or in idm-compose.conf
+export VENDOR_REGISTRY
+export SUBNET=${SUBNET:-"172.77.0.0/24"}
+export DOCKER_HOST_BINDING=${DOCKER_HOST_BINDING:-"0.0.0.0"}
+export COMMON_PW=${COMMON_PW:-"n0v3ll"}
+STACK_PREFIX=${STACK_PREFIX:-"IDM-COMPOSE"}
+
+if [[ $STACK =~ ^[0-9]+$ ]] && (( 1 <= $STACK <= 63)); then
+    NET=$(cut -d . -f 1-2 <<< $SUBNET).$(($(cut -d . -f 3 <<< $SUBNET) + $STACK))
+    export SUBNET="$NET.0/24"
+else
+    STACK=1
+    NET=$(cut -d . -f 1-3 <<< $SUBNET)
+fi
+
+export STACK
+export PORT_BASE=${PORT_BASE:-$((STACK * 1000))}
+
+export STACKNAME=${STACKNAME:-${STACK_PREFIX}$(printf %02d $STACK)}
+export TREENAME=${TREENAME:-$(tr '[:lower:]' '[:upper:]' <<< $STACKNAME)}
+export IMAGE_PREFIX=${IMAGE_PREFIX:-$(tr '[:upper:]' '[:lower:]' <<< $STACKNAME)}
+
+
+# set default network parameters
+# override by setting SUBNET, PORT_BASE and (optionally) some or all IP_* env vars
+
+export IP_IDV=${IP_IDV:-$NET.2}
+export IP_IDCON=${IP_IDCON:-$NET.3}
+export IP_RL=${IP_RL:-$NET.4}
+export IP_IMAN=${IP_IMAN:-$NET.5}
+export IP_OSP=${IP_OSP:-$NET.6}
+export IP_APPS=${IP_APPS:-$NET.7}
+export IP_FORMS=${IP_FORMS:-$NET.8}
+export IP_SSPR=${IP_SSPR:-$NET.9}
+export IP_DB=${IP_DB:-$NET.10}
+# export IP_MQ=${IP_MQ:-$NET.11}
+
+export PORT_LDAP=${PORT_LDAP:-$((PORT_BASE + 389))}
+export PORT_LDAPS=${PORT_LDAPS:-$((PORT_BASE + 636))}
+export PORT_IMON=${PORT_IMON:-$((PORT_BASE + 828))}
+export PORT_IMONS=${PORT_IMONS:-$((PORT_BASE + 830))}
+export PORT_IMAN=${PORT_IMAN:-$((PORT_BASE + 843))}
+export PORT_IDCON=${PORT_IDCON:-$((PORT_BASE + 900))}
+export PORT_APPS=${PORT_APPS:-$((PORT_BASE + 443))}
+export PORT_OSP=${PORT_OSP:-$((PORT_BASE + 444))}
+export PORT_SSPR=${PORT_SSPR:-$((PORT_BASE + 445))}
+export PORT_FORMS=${PORT_FORMS:-$((PORT_BASE + 446))}
+export PORT_DB=${PORT_DB:-$((PORT_BASE + 532))}
+
+GREEN='\033[0;32m'
+RESET='\033[0m'
+BOLD='\033[0;1m'
+DONE="${GREEN} Done${RESET}"
+SKIP="${GREEN} Skipped${RESET}"
+
+echo -e "Using internal docker subnet$BOLD $SUBNET $RESET and ports mapped to$BOLD 127.0.0.1:$((PORT_BASE + 389))..$((PORT_BASE + 900))$RESET"
+
+# clean up workspace
+for file in $(ls *_template) $(find config -name "*_template" -type f); do 
+    echo > ${file//_template/}
+done
+
+# # create config files from templates (1)
+# for file in $(ls *_template); do 
+#     echo "Creating ${file//_template/} from template..."
+#     envsubst < $file > ${file//_template/}
+# done
+
+# # project name can be set various ways, see https://docs.docker.com/compose/how-tos/project-name/
+# STACKNAME=${STACKNAME:-$(docker compose $COMPOSE_OPTS config | grep -E '^name: ' | cut -d " " -f2)}
+
+
+# create config files from templates
+for file in $(ls *_template) $(find config images -name "*_template" -type f); do
+    echo "Creating ${file//_template/} from template..."
+    if [[ $file =~ import.sh ]]; then
+        # do not replace internal script variables
+        envsubst '$PORT_LDAPS $COMMON_PW' < $file > ${file//_template/}
+    else
+        envsubst < $file > ${file//_template/}
+    fi 
+done
+
+# # save stack/project name to compose.yaml for later use with other compose commands
+# YAML=$(sed "1s/^/name: $STACKNAME\n\n/" compose.yaml)
+# echo "$YAML" > compose.yaml
+
+# validate compose file and command line options
+docker compose $COMPOSE_OPTS config -q || exit
+SERVICES=$(docker compose $COMPOSE_OPTS config --services | sort)
+echo "Installing services: "$SERVICES
+
+# generate CA and server key/cert if not provided or already available
+if [ ! -f config/data/keys.pfx ]; then
+    # generate local CA and server key/cert
+    if [ ! -f server.crt ] || [ ! -f server.key ] || [ ! -f ca.crt ]; then
+        # generate CA and wildcard server cert 
+        if [ ! -f ca.key ] || [ ! -f ca.crt ]; then
+            echo "Creating CA..."
+            openssl genrsa -verbose -aes256 -passout pass:changeit -out ca.key 4096
+            openssl req -x509 -new -noenc -key ca.key -passin pass:changeit -sha256 -days 3650 -subj '/CN=IDM-LOCAL-CA' -out ca.crt 
+        fi
+        # the same wildcard server certificate will be used for all containers and (almost all) services
+        echo "Creating server certificate..."
+        openssl req -new -noenc -out server.csr -newkey rsa:4096 -keyout server.key -subj '/CN=*.idm.local' \
+                    -addext "subjectAltName=DNS:*.idm.local,IP:127.0.0.1" \
+                    -addext "basicConstraints=CA:FALSE" \
+                    -addext "keyUsage=digitalSignature,keyEncipherment" \
+                    -addext "extendedKeyUsage=serverAuth"
+        openssl x509 -req -days 3650 -sha256 -in server.csr -CA ca.crt -CAkey ca.key -passin pass:changeit -out server.crt \
+                    -copy_extensions copy -CAcreateserial
+    else
+        echo "Using existing server.key and server.crt"
+    fi
+    echo "Creating keystores..."
+    openssl pkcs12 -export -in server.crt -inkey server.key -out config/data/keys.pfx -name tomcat -passout pass:$COMMON_PW || exit
+    keytool -J-Duser.language=en -import -noprompt -file ca.crt -trustcacerts -alias idm-local_ca -keystore config/data/keys.pfx -storepass "$COMMON_PW" || exit
+    # remove previous iManager cert so it gets recreated
+    rm -f ca.der images/iManager/.p12
+else
+    echo "Using existing keystore ./config/data/keys.pfx"
+fi
+# Print server certificate details
+keytool -J-Duser.language=en -list -keystore config/data/keys.pfx -storepass "$COMMON_PW" | grep -E 'contains|Entry'
+openssl x509 -in config/data/keys.pfx -passin pass:$COMMON_PW -text -noout | grep -E 'Not|local' | sed "s/  */ /g"
+
+# iManager keystore needs password "changeit"
+if [[ $SERVICES =~ iman ]] && [ ! -f images/iManager/.p12 ]; then
+    keytool -J-Duser.language=en -importkeystore -noprompt -srckeystore config/data/keys.pfx -srcstoretype PKCS12 \
+            -srcstorepass "$COMMON_PW" -destkeystore images/iManager/.p12 -deststoretype PKCS12 -deststorepass changeit
+fi
+
+if [[ $SERVICES =~ forms ]];then
+    mkdir -p config/FormRenderer/nginx/cert
+    # Formrenderer needs key/cert separately in IDM 4.9...
+    openssl pkcs12 -in config/data/keys.pfx -passin pass:$COMMON_PW -clcerts -nokeys -out config/FormRenderer/nginx/cert/nginx.crt 
+    openssl pkcs12 -in config/data/keys.pfx -passin pass:$COMMON_PW -nocerts -out config/FormRenderer/nginx/cert/nginx.key -passout pass:$COMMON_PW
+    echo "$COMMON_PW" > config/FormRenderer/nginx/cert/pass.txt
+    # ... and an updated default cert.zip for IDM 4.10
+    (cd config/FormRenderer/nginx && zip ../../../images/forms/cert.zip cert/*)
+fi
+
+if [[ $SERVICES =~ sspr ]];then
+    # SSPR needs certs in DER format
+    keytool -exportcert -alias idm-local_ca -keystore config/data/keys.pfx -storepass "$COMMON_PW" -file ca.der
+    keytool -exportcert -alias tomcat -keystore config/data/keys.pfx -storepass "$COMMON_PW" -file server.der
+fi
+
+# create containers, networks and volumes
+docker compose $COMPOSE_OPTS create --build --no-recreate --remove-orphans || exit
+
+# copy config folder contents to config volume (mounted at /config in idv/idcon/iman/mq/apps/osp containers)
+docker compose $COMPOSE_OPTS cp ./config idv:/ || exit
+
+# copy database init script to db container
+if [[ $SERVICES =~ db ]] && [[ ! $(docker compose $COMPOSE_OPTS ps --services) =~ db ]];then
+    docker compose $COMPOSE_OPTS cp ./config/data/init.sql db:/docker-entrypoint-initdb.d/ || exit
+fi
+
+# start first batch of containers
+docker login hub.is4it.de || exit
+docker compose $COMPOSE_OPTS start $(grep -E 'db|iman|mq|rl' <<< "$SERVICES")
+echo -e $GREEN"INFO:$RESET You can follow the init progess in more detail by running '$BOLD idm-compose logs -f $RESET' in a second terminal"
+
+# wait for Edir to start and import any custom *.ldif or *.sch files
+if [[ $SERVICES =~ idv ]];then
+    if  [[ $(docker compose $COMPOSE_OPTS ps --services) =~ idv ]]; then
+        echo -e $BOLD"idv$RESET is already running" $SKIP
+    else
+        docker compose $COMPOSE_OPTS start idv
+        echo -n "Waiting for Edirectory to initialize..."
+        while ! grep -q "Started NetIQ eDirectory server on host:" <(docker compose $COMPOSE_OPTS logs idv); do
+            # work around a timing issue, short of a real solution
+            if docker compose $COMPOSE_OPTS exec -it idv test -f /config/idm/log/idmconfigure.log \
+                && docker compose $COMPOSE_OPTS exec -it idv grep -q "Could not find prompt ID" /config/idm/log/idmconfigure.log ; then
+                docker compose $COMPOSE_OPTS exec -it idv echo > /config/idm/log/idmconfigure.log || exit
+                docker compose $COMPOSE_OPTS restart --no-deps idv || exit
+            fi
+            echo -n "."; sleep 5
+        done; echo -e $DONE
+        # import *.ldif and *.sch files into tree
+        docker compose $COMPOSE_OPTS exec -it idv bash "/config/idm/mountfiles/import.sh" || exit
+        # download Edir CA certificate
+        docker compose $COMPOSE_OPTS cp idv:/config/idm/eDirectory_data/data/SSCert.pem . || exit
+    fi
+fi
+
+if [[ $SERVICES =~ idcon ]];then
+    if  [[ $(docker compose $COMPOSE_OPTS ps --services) =~ idcon ]]; then
+        echo -e $BOLD"idcon$RESET is already running" $SKIP
+    else
+        # make Edir CA certificate available for ID Console
+        if [[ $SERVICES =~ idv ]] ;then
+            docker compose $COMPOSE_OPTS exec -it idv bash -c "echo -n 'Adding symlink  '; ln -svf /config/idm/eDirectory_data/data/SSCert.pem /config/data" || exit
+        fi
+        docker compose $COMPOSE_OPTS restart --no-deps idcon || exit
+        docker compose $COMPOSE_OPTS exec -it idcon sed -i -E "s#(Server IP / DNS. value=.)#\1idv.idm.local:$PORT_LDAPS#" /var/opt/novell/identityconsole/login.html || exit
+    fi
+fi
+
+if [[ $SERVICES =~ osp ]];then
+    if  [[ $(docker compose $COMPOSE_OPTS ps --services) =~ osp ]]; then
+        echo -e $BOLD"osp$RESET is already running" $SKIP
+    else
+        docker compose $COMPOSE_OPTS restart --no-deps osp || exit
+        echo -n "Waiting for OSP to initialize..."
+        while ! grep -q "contains" <(docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -list -keystore /config/osp/tomcat/conf/tomcat.ks -storepass $COMMON_PW) ; do 
+            echo -n "."; sleep 5; done
+        while grep -q "configure.sh" <(docker compose $COMPOSE_OPTS exec -it osp ps -aux) ; do 
+            echo -n "."; sleep 5; done; echo -e $DONE
+        if [[ $SERVICES =~ idv ]] ;then
+            echo -n "Importing tree CA into OSP keystores"
+            while docker compose $COMPOSE_OPTS exec -it osp bash -c "[ ! -f /config/idm/eDirectory_data/data/SSCert.pem ]" ; do 
+                echo -n "."; sleep 5; done; echo
+            docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -import -trustcacerts -noprompt -alias "${TREENAME}_CA" \
+                    -file /config/idm/eDirectory_data/data/SSCert.pem -keystore /config/osp/tomcat/conf/tomcat.ks -storepass "$COMMON_PW" || exit
+        fi
+        docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -importkeystore -noprompt \
+            -srckeystore /config/osp/tomcat/conf/tomcat.ks -srcstorepass "$COMMON_PW" \
+            -destkeystore /config/osp/tomcat/conf/idm.jks -deststorepass "$COMMON_PW" || exit
+        docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -importkeystore -noprompt \
+            -srckeystore /config/osp/tomcat/conf/tomcat.ks -srcstorepass "$COMMON_PW" -cacerts -deststorepass changeit 2>&1 | sed "/completed/q"
+        # while grep -q "configure.sh" <(docker compose $COMPOSE_OPTS exec -it osp ps -aux) ; do 
+        #     echo -n "."; sleep 5; done
+        docker compose $COMPOSE_OPTS restart --no-deps osp || exit
+        echo -n "Waiting for OSP to restart..."
+        while ! grep -qE "Server startup in .* milliseconds" <(docker compose $COMPOSE_OPTS logs osp --since 30s) ; do 
+            echo -n "."; sleep 5; done; echo -e $DONE
+    fi
+fi
+
+if [[ $SERVICES =~ apps ]];then
+    if  [[ $(docker compose $COMPOSE_OPTS ps --services) =~ apps ]]; then
+        echo -e $BOLD"apps$RESET is already running" $SKIP
+    else
+        docker compose $COMPOSE_OPTS restart --no-deps apps || exit
+        # See https://www.netiq.com/documentation/identity-manager-49/identity_apps_admin/data/general-issues-troubleshooting.html#t4aq2qin70e0
+        if ! docker compose $COMPOSE_OPTS exec -it apps grep -q "com.sun.net.ssl.checkRevocation=false" /opt/netiq/idm/apps/tomcat/bin/setenv.sh ; then
+            docker compose $COMPOSE_OPTS exec -it apps sed -i.bak 's/JAVA_OPTS="/JAVA_OPTS="-Dcom.sun.net.ssl.checkRevocation=false /' /opt/netiq/idm/apps/tomcat/bin/setenv.sh
+        fi
+        # Import server cert into truststore
+        echo -n "Waiting for User App to initialize..."
+        while ! grep -q contains <(docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -list -keystore /config/userapp/tomcat/conf/tomcat.ks -storepass $COMMON_PW) ; do 
+            echo -n "."; sleep 5; done; echo
+        docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -importkeystore -noprompt \
+                -srckeystore /config/userapp/tomcat/conf/tomcat.ks -srcstorepass "$COMMON_PW" \
+                -destkeystore /config/userapp/tomcat/conf/idm.jks -deststorepass $COMMON_PW
+        docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -importkeystore -noprompt \
+                -srckeystore /config/userapp/tomcat/conf/tomcat.ks -srcstorepass "$COMMON_PW" -cacerts -deststorepass changeit 2>&1 | sed "/completed/q"
+        while grep -q "configure.sh" <(docker compose $COMPOSE_OPTS exec -it apps ps -aux) ; do 
+            echo -n "."; sleep 5; done
+        while ! grep -q "org.apache.catalina.startup.Catalina.start Server startup" <(docker compose $COMPOSE_OPTS exec apps cat /opt/netiq/idm/apps/tomcat/logs/catalina.out 2>&1) ; do 
+            echo -n "."; sleep 5; done; echo -e $DONE
+        docker compose $COMPOSE_OPTS restart --no-deps apps || exit
+        echo -n "Restarting User App (this may take a few minutes to complete)"
+        # while ! grep -q "Tomcat started." <(docker compose $COMPOSE_OPTS logs apps --since 1m) ; do 
+        #     echo -n "."; sleep 5; done; echo -e $DONE
+    fi
+fi
+
+if [[ $SERVICES =~ forms ]];then
+    if  [[ $(docker compose $COMPOSE_OPTS ps --services) =~ forms ]]; then
+        echo -e $BOLD"forms$RESET is already running" $SKIP
+    else
+        docker compose $COMPOSE_OPTS restart --no-deps forms || exit
+    fi
+fi
+
+if [[ $SERVICES =~ sspr ]];then
+    if  [[ $(docker compose $COMPOSE_OPTS ps --services) =~ sspr ]]; then
+        echo -e $BOLD"sspr$RESET is already running" $SKIP
+    else
+        docker compose $COMPOSE_OPTS cp ./config/data/ sspr:/config/
+        docker compose $COMPOSE_OPTS cp ./config/silent.properties sspr:/config/
+        docker compose $COMPOSE_OPTS start sspr || exit
+        echo -n "Waiting for SSPR to initialize..."
+        while docker compose $COMPOSE_OPTS exec -it sspr bash -c "[ ! -f /config/SSPRConfiguration.xml ]" || \
+            ! docker compose $COMPOSE_OPTS exec -it sspr grep -q '</settings>' /config/SSPRConfiguration.xml ; do 
+        echo -n "."; sleep 5; 
+        done; echo -e $DONE
+        # Save the frist part of SSPR-generated SSPRConfiguration.xml to local file
+        # Also, when importing silent.properties SSPR creates a faulty ldap filter "( objectclass=* )", the extra spaces need to be removed
+        docker compose $COMPOSE_OPTS exec -it sspr sed -e 's/ objectclass=\* /objectClass=*/ ; /<\/settings>/Q' /config/SSPRConfiguration.xml > config/data/SSPRConfiguration.xml || exit
+        # Add OAuth server certificates, disable Forgotten Password Prompts
+        echo "\
+        <setting key=\"recovery.enable\" modifyTime=\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" syntax=\"BOOLEAN\" syntaxVersion=\"0\">
+        <label>Enable Forgotten Password</label>
+        <value>false</value>
+        </setting>
+        <setting key=\"oauth.idserver.serverCerts\" modifyTime=\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" syntax=\"X509CERT\" syntaxVersion=\"0\">
+        <label>OAUTH Web Service Server Certificate</label>
+        <value>$(base64 -w0 < server.der)</value>
+        <value>$(base64 -w0 < ca.der)</value>
+        </setting>" >> config/data/SSPRConfiguration.xml
+        # restore the final part of the configuration
+        docker compose $COMPOSE_OPTS  exec -it sspr grep -A999 '</settings>' /config/SSPRConfiguration.xml >> config/data/SSPRConfiguration.xml || exit
+        # upload patched file (triggers SSPR restart)
+        docker compose $COMPOSE_OPTS  cp config/data/SSPRConfiguration.xml sspr:/config/ || exit
+        # The following should import the server key/cert but always fails with error "application lock could not be obtained":
+        #docker compose $COMPOSE_OPTS exec -it sspr /app/command.sh ImportHttpsKeyStore /config/data/keys.pfx PKCS12 tomcat "$COMMON_PW"
+    fi
+fi
+
+echo "
+The following services should soon be available for login as 'cn=admin,ou=sa,o=system' with password '$COMMON_PW' (use NDAP format for iMonitor/iManager):
+"
+[[ $SERVICES =~ idcon ]] && echo " ID Console ->	https://idcon.idm.local:$PORT_IDCON/identityconsole"
+[[ $SERVICES =~ idv ]]   && echo " LDAP       ->	ldap://idv.idm.local:$PORT_LDAP" \
+                         && echo "            ->	ldaps://idv.idm.local:$PORT_LDAPS" \
+                         && echo " iMonitor   ->	https://idv.idm.local:$PORT_IMON/nds"
+[[ $SERVICES =~ iman ]]  && echo " iManager   ->	https://iman.idm.local:$PORT_IMAN/nps"
+
+[[ $SERVICES =~ apps|idcon ]] && echo "
+Use 'cn=appadmin,ou=sa,o=data' with password '$COMMON_PW' to log in to:
+"
+[[ $SERVICES =~ apps ]]  && echo " UserApp    ->	https://apps.idm.local:$PORT_APPS/idmdash"
+[[ $SERVICES =~ sspr ]]  && echo " SSPR       ->	https://sspr.idm.local:$PORT_SSPR/sspr"
+echo "
+Make sure to import $(pwd)/ca.crt as a trusted root CA certificate into your browser and add the following lines to /etc/hosts on your Docker host:
+
+ 127.0.0.1	apps.idm.local
+ 127.0.0.1	db.idm.local
+ 127.0.0.1	forms.idm.local
+ 127.0.0.1	idcon.idm.local
+ 127.0.0.1	idv.idm.local
+ 127.0.0.1	iman.idm.local
+ 127.0.0.1	osp.idm.local
+ 127.0.0.1	sspr.idm.local
+
+Designer requires a NAT mapping from the internal address $IP_IDV:636 to 127.0.0.1:$PORT_LDAPS to properly connect to the new tree (in Window > Preferences > NetIQ > Identity Manager > NAT Mapping).
+
+The Edirectory CA certificate for the $TREENAME tree can be found at $(pwd)/SSCert.pem to validate LDAP and iMonitor connections.
+"
+
+exit $? # protect running script against appends
+} 

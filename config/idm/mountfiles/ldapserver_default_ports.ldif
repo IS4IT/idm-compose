@@ -1,0 +1,9 @@
+# Enable standard LDAP(S) ports so ID Console can be used with generic hostname "idv.idm.local"
+dn: cn=LDAP Server - idv,ou=servers,o=system
+changetype: modify
+add: ldapInterfaces
+ldapInterfaces: ldap://:389
+ldapInterfaces: ldaps://:636
+-
+
+

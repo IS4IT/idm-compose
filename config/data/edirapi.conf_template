@@ -1,0 +1,12 @@
+listen = ":$PORT_IDCON"
+pfxpassword = "$COMMON_PW"
+ospmode = "false"
+bcert = "/etc/opt/novell/eDirAPI/cert/"
+origin = "https://localhost:$PORT_IDCON,https://127.0.0.1:$PORT_IDCON,https://idcon.idm.local:$PORT_IDCON"
+
+# only valid for idcon <=1.8, breaks idcon 1.9
+#edir-hosts = "$IP_IDV:$PORT_LDAPS", "idv.idm.local:$PORT_LDAPS"
+
+# only valid for idcon 1.9, breaks idcon <=1.8
+auto-fetch = true
+
