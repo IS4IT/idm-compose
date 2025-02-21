@@ -56,7 +56,7 @@ This tool on the other hands is primarily about easily creating IDM environments
 
 #### Stacks (in development)
 
-`idm-compose` allows to create up to 63 stacks in parallel, numbered 1..63. Each stack has it's name, subnet and published port range derived from it's id. For example stack 27 will be named "idm27" live on subnet x.y.27.0/24 and publish applications on ports 127.0.0.1:27xxx
+`idm-compose` allows to create up to 63 stacks in parallel, numbered 1..63. Each stack has it's name, subnet and published port range derived from it's id. For example run `STACK=27 ./idm-compose init` to create stack 27, which will be named "idm-compose27" live on subnet x.y.27.0/24 and publish applications on ports 0.0.0.0:27xxx
 
 If you want to run just a single stack, no stack id needs to be provided.
 
@@ -64,7 +64,7 @@ If you want to run just a single stack, no stack id needs to be provided.
 
 Unlike the single server setup described in the documentation, which uses `host`networking, `idm-compose` sets up `bridge` networking and only selected ports are mapped to the `localhost` interface. This allows for multiple isolated environments to co-exist and does not expose them to the outside world.
 
-Networking can be configured in `compose.yaml_template` to bind to the default `0.0.0.0` instead of just `localhost`, which is required if docker runs inside a virtual machine and IDM shall be accessible from the host machine. In that case the `*.idm.local` entries in `/etc/hosts` need to point to the VM's IP address instead of `127.0.0.1`
+Networking can be configured in `idm-compose.conf` to bind to `0.0.0.0` or just `localhost`. `0.0.0.0` is required if docker runs inside a virtual machine and IDM shall be accessible from the host machine. In that case the `*.idm.local` entries in `/etc/hosts` need to point to the VM's IP address instead of `127.0.0.1`
 
 Instead of using networking parameters derived from the stack id you can override them by setting the `SUBNET` and `PORT_BASE` environment variables prior to calling `idm-compose`, to avoid conflicts with other software.
 
@@ -100,16 +100,6 @@ While `idm-compose` is working you may want to follow its progress in more detai
 ```
 ```
 ./idm-compose exec idv tail -qFn0 /config/userapp/tomcat/logs/catalina.out /config/osp/tomcat/logs/catalina.out
-```
-
-In order to pull images form hub.is4it.de, you may need to login first with `docker login hub.is4it.de`
-
-Pulling images concurrently does not work well with hub.is4it.de, to prevent this configure your docker deamon with:
-```
-{
-    "max-concurrent-uploads": 1,
-    "max-concurrent-downloads": 1
-}
 ```
 
 ## Known issues
