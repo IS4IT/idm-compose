@@ -151,7 +151,7 @@ BOLD='\033[0;1m'
 DONE="${GREEN} Done${RESET}"
 SKIP="${GREEN} Skipped${RESET}"
 
-echo -e "Using internal docker subnet$BOLD $SUBNET $RESET and ports mapped to$BOLD 127.0.0.1:$((PORT_BASE + 389))..$((PORT_BASE + 900))$RESET"
+echo -e "Using internal docker subnet$BOLD $SUBNET $RESET and ports mapped to $BOLD $DOCKER_HOST_BINDING:$((PORT_BASE + 389))..$((PORT_BASE + 900))$RESET"
 
 # clean up workspace
 for file in $(ls *_template) $(find config -name "*_template" -type f); do 

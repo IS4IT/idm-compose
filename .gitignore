@@ -15,3 +15,5 @@ images/imanager/.p12
 images/forms/cert.zip
 Dockerfile
 ca.*
+config/data/init.sql
+config/idm/mountfiles/import.sh

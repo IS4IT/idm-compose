@@ -1,4 +1,4 @@
-FROM ${VENDOR_REGISTRY}identityconsole:1.9.0.0000
+FROM ${VENDOR_REGISTRY}identityconsole:1.9.0.0000-533
 USER root
 WORKDIR /
 
