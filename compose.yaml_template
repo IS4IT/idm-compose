@@ -13,6 +13,7 @@ x-common: &common
     forms.idm.local: $IP_FORMS
     sspr.idm.local: $IP_SSPR
     db.idm.local: $IP_DB
+    mail.idm.local: $IP_MAIL
     # mq.idm.local: $IP_MQ
   logging:
     driver: local
@@ -25,6 +26,7 @@ services:
   idv:
     <<: *common
     # image: ${IMAGE_PREFIX}/identityengine:idm-4.10.0-533
+    pull_policy: never
     build: 
       context: images/identityengine
       platforms: 
@@ -53,6 +55,7 @@ services:
   rl:
     <<: *common
     # image: ${IMAGE_PREFIX}/remoteloader:idm-4.10.0-533
+    pull_policy: never
     build: 
       context: images/remoteloader
       platforms: 
@@ -76,6 +79,7 @@ services:
   idcon:
     <<: *common
     # image: ${IMAGE_PREFIX}/identityconsole:1.9.0.0000
+    pull_policy: never
     build:
       context: images/identityconsole
       platforms: 
@@ -105,6 +109,7 @@ services:
   iman:
     <<: *common
     # image: ${IMAGE_PREFIX}/imanager:3.2.6-p3
+    pull_policy: never
     build:
       context: images/imanager
       platforms: 
@@ -150,9 +155,34 @@ services:
     volumes:
       - db:/var/lib/postgresql/data
 
+  mail:
+    <<: *common
+    # Using the official platform-specific image
+    image: maildev/maildev:latest
+    profiles: ${MAIL_PROFILES}
+    restart: unless-stopped
+    environment:
+      MAILDEV_WEB_PORT: $PORT_MAIL
+      MAILDEV_HTTPS: true
+      MAILDEV_HTTPS_KEY: /config/mail/mail.key
+      MAILDEV_HTTPS_CERT: /config/mail/mail.crt
+      MAILDEV_SMTP_PORT: $PORT_SMTP
+      MAILDEV_MAIL_DIRECTORY: /config/mail/data
+      # for more options, see https://github.com/maildev/maildev
+    ports:
+      - "$PORT_MAIL:$PORT_MAIL"
+      - "$PORT_SMTP:$PORT_SMTP"
+    hostname: mail
+    networks:
+      default:
+        ipv4_address: $IP_MAIL
+    volumes:
+      - config:/config
+
   osp:
     <<: *common
     # image: ${IMAGE_PREFIX}/osp:idm-4.10.0-533
+    pull_policy: never
     build:
       context: images/osp
       platforms: 

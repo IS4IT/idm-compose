@@ -1,0 +1,15 @@
+# set maildev as smtp server
+dn: cn=Default Notification Collection,cn=Security
+changetype: modify
+replace: notfSMTPEmailFrom
+notfSMTPEmailFrom: ${STACKNAME}@idm.local
+-
+replace: notfSMTPEmailHost
+notfSMTPEmailHost: mail.idm.local:${PORT_SMTP}
+-
+replace: notfSMTPTimeout
+notfSMTPTimeout: 0
+-
+replace: notfSMTPUseTLS
+notfSMTPUseTLS: FALSE
+-

@@ -17,3 +17,6 @@ Dockerfile
 ca.*
 config/data/init.sql
 config/idm/mountfiles/import.sh
+config/idm/mountfiles/smtp.ldif
+config/mail/mail.key
+config/mail/mail.crt

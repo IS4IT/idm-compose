@@ -91,7 +91,8 @@ done
 # syntax: JSON array e.g. ["disabled"]
 export IDCON_PROFILES=[""]          # idcon
 export RL_PROFILES=[""]             # rl
-export IMAN_PROFILES=["disabled"]           # iman
+export IMAN_PROFILES=["disabled"]   # iman
+export MAIL_PROFILES=[""]           # webmail
 export APPS_PROFILES=[""]           # apps db forms osp sspr
 export FANOUT_PROFILES=["disabled"] # mq fanout
 
@@ -132,7 +133,10 @@ export IP_FORMS=${IP_FORMS:-$NET.8}
 export IP_SSPR=${IP_SSPR:-$NET.9}
 export IP_DB=${IP_DB:-$NET.10}
 # export IP_MQ=${IP_MQ:-$NET.11}
+export IP_MAIL=${IP_MAIL:-$NET.12}
 
+export PORT_SMTP=${PORT_SMTP:-$((PORT_BASE + 25))}
+export PORT_MAIL=${PORT_MAIL:-$((PORT_BASE + 447))}
 export PORT_LDAP=${PORT_LDAP:-$((PORT_BASE + 389))}
 export PORT_LDAPS=${PORT_LDAPS:-$((PORT_BASE + 636))}
 export PORT_IMON=${PORT_IMON:-$((PORT_BASE + 828))}
@@ -166,7 +170,6 @@ done
 
 # # project name can be set various ways, see https://docs.docker.com/compose/how-tos/project-name/
 # STACKNAME=${STACKNAME:-$(docker compose $COMPOSE_OPTS config | grep -E '^name: ' | cut -d " " -f2)}
-
 
 # create config files from templates
 for file in $(ls *_template) $(find config images -name "*_template" -type f); do
@@ -238,6 +241,14 @@ if [[ $SERVICES =~ forms ]];then
     (cd config/FormRenderer/nginx && zip ../../../images/forms/cert.zip cert/*)
 fi
 
+if [[ $SERVICES =~ mail ]];then
+    mkdir -p config/mail/data
+    openssl rsa -in server.key -out config/mail/mail.key
+    chmod 644 config/mail/mail*
+    cp -v server.crt config/mail/mail.crt
+    mv -v config/mail/smtp.ldif config/idm/mountfiles/
+fi
+
 if [[ $SERVICES =~ sspr ]];then
     # SSPR needs certs in DER format
     keytool -exportcert -alias idm-local_ca -keystore config/data/keys.pfx -storepass "$COMMON_PW" -file ca.der
@@ -256,8 +267,9 @@ if [[ $SERVICES =~ db ]] && [[ ! $(docker compose $COMPOSE_OPTS ps --services) =
 fi
 
 # start first batch of containers
-docker login hub.is4it.de || exit
-docker compose $COMPOSE_OPTS start $(grep -E 'db|iman|mq|rl' <<< "$SERVICES")
+[[ -n ${VENDOR_REGISTRY} ]] && docker login $(cut -d/ -f1 <<< $VENDOR_REGISTRY)
+
+docker compose $COMPOSE_OPTS start $(grep -E 'db|iman|mq|rl|mail' <<< "$SERVICES")
 echo -e $GREEN"INFO:$RESET You can follow the init progess in more detail by running '$BOLD idm-compose logs -f $RESET' in a second terminal"
 
 # wait for Edir to start and import any custom *.ldif or *.sch files
@@ -407,8 +419,9 @@ The following services should soon be available for login as 'cn=admin,ou=sa,o=s
                          && echo "            ->	ldaps://idv.idm.local:$PORT_LDAPS" \
                          && echo " iMonitor   ->	https://idv.idm.local:$PORT_IMON/nds"
 [[ $SERVICES =~ iman ]]  && echo " iManager   ->	https://iman.idm.local:$PORT_IMAN/nps"
+[[ $SERVICES =~ mail ]]  && echo " WebMail    ->	https://mail.idm.local:$PORT_MAIL"
 
-[[ $SERVICES =~ apps|idcon ]] && echo "
+[[ $SERVICES =~ apps|sspr ]] && echo "
 Use 'cn=appadmin,ou=sa,o=data' with password '$COMMON_PW' to log in to:
 "
 [[ $SERVICES =~ apps ]]  && echo " UserApp    ->	https://apps.idm.local:$PORT_APPS/idmdash"
@@ -416,14 +429,7 @@ Use 'cn=appadmin,ou=sa,o=data' with password '$COMMON_PW' to log in to:
 echo "
 Make sure to import $(pwd)/ca.crt as a trusted root CA certificate into your browser and add the following lines to /etc/hosts on your Docker host:
 
- 127.0.0.1	apps.idm.local
- 127.0.0.1	db.idm.local
- 127.0.0.1	forms.idm.local
- 127.0.0.1	idcon.idm.local
- 127.0.0.1	idv.idm.local
- 127.0.0.1	iman.idm.local
- 127.0.0.1	osp.idm.local
- 127.0.0.1	sspr.idm.local
+`sed -E 's/(.*)/127.0.0.1\t\1.idm.local/' <<< $SERVICES`
 
 Designer requires a NAT mapping from the internal address $IP_IDV:636 to 127.0.0.1:$PORT_LDAPS to properly connect to the new tree (in Window > Preferences > NetIQ > Identity Manager > NAT Mapping).
 
