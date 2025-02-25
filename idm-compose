@@ -208,7 +208,7 @@ if [ ! -f config/data/keys.pfx ]; then
                     -addext "basicConstraints=CA:FALSE" \
                     -addext "keyUsage=digitalSignature,keyEncipherment" \
                     -addext "extendedKeyUsage=serverAuth"
-        openssl x509 -req -days 3650 -sha256 -in server.csr -CA ca.crt -CAkey ca.key -passin pass:changeit -out server.crt \
+        openssl x509 -req -days 3650 -sha384 -in server.csr -CA ca.crt -CAkey ca.key -passin pass:changeit -out server.crt \
                     -copy_extensions copy -CAcreateserial
     else
         echo "Using existing server.key and server.crt"
@@ -243,20 +243,14 @@ fi
 
 if [[ $SERVICES =~ mail ]];then
     mkdir -p config/mail/data
+    cp -v server.crt config/mail/mail.crt
     openssl rsa -in server.key -out config/mail/mail.key
     chmod 644 config/mail/mail*
-    cp -v server.crt config/mail/mail.crt
     mv -v config/mail/smtp.ldif config/idm/mountfiles/
 fi
 
-if [[ $SERVICES =~ sspr ]];then
-    # SSPR needs certs in DER format
-    keytool -exportcert -alias idm-local_ca -keystore config/data/keys.pfx -storepass "$COMMON_PW" -file ca.der
-    keytool -exportcert -alias tomcat -keystore config/data/keys.pfx -storepass "$COMMON_PW" -file server.der
-fi
-
 # create containers, networks and volumes
-docker compose $COMPOSE_OPTS create --build --no-recreate --remove-orphans || exit
+docker compose $COMPOSE_OPTS create --no-recreate --remove-orphans || exit
 
 # copy config folder contents to config volume (mounted at /config in idv/idcon/iman/mq/apps/osp containers)
 docker compose $COMPOSE_OPTS cp ./config idv:/ || exit
@@ -391,7 +385,9 @@ if [[ $SERVICES =~ sspr ]];then
         # Save the frist part of SSPR-generated SSPRConfiguration.xml to local file
         # Also, when importing silent.properties SSPR creates a faulty ldap filter "( objectclass=* )", the extra spaces need to be removed
         docker compose $COMPOSE_OPTS exec -it sspr sed -e 's/ objectclass=\* /objectClass=*/ ; /<\/settings>/Q' /config/SSPRConfiguration.xml > config/data/SSPRConfiguration.xml || exit
-        # Add OAuth server certificates, disable Forgotten Password Prompts
+        # Add OAuth server certificates in base64-encoded DER format, disable Forgotten Password Prompts
+        keytool -exportcert -alias idm-local_ca -keystore config/data/keys.pfx -storepass "$COMMON_PW" -file ca.der
+        keytool -exportcert -alias tomcat -keystore config/data/keys.pfx -storepass "$COMMON_PW" -file server.der
         echo "\
         <setting key=\"recovery.enable\" modifyTime=\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" syntax=\"BOOLEAN\" syntaxVersion=\"0\">
         <label>Enable Forgotten Password</label>
@@ -406,7 +402,7 @@ if [[ $SERVICES =~ sspr ]];then
         docker compose $COMPOSE_OPTS  exec -it sspr grep -A999 '</settings>' /config/SSPRConfiguration.xml >> config/data/SSPRConfiguration.xml || exit
         # upload patched file (triggers SSPR restart)
         docker compose $COMPOSE_OPTS  cp config/data/SSPRConfiguration.xml sspr:/config/ || exit
-        # The following should import the server key/cert but always fails with error "application lock could not be obtained":
+        # The following should import the http server key/cert but always fails with error "application lock could not be obtained":
         #docker compose $COMPOSE_OPTS exec -it sspr /app/command.sh ImportHttpsKeyStore /config/data/keys.pfx PKCS12 tomcat "$COMMON_PW"
     fi
 fi
@@ -428,10 +424,10 @@ Use 'cn=appadmin,ou=sa,o=data' with password '$COMMON_PW' to log in to:
 [[ $SERVICES =~ sspr ]]  && echo " SSPR       ->	https://sspr.idm.local:$PORT_SSPR/sspr"
 echo "
 Make sure to import $(pwd)/ca.crt as a trusted root CA certificate into your browser and add the following lines to /etc/hosts on your Docker host:
-
-`sed -E 's/(.*)/127.0.0.1\t\1.idm.local/' <<< $SERVICES`
-
-Designer requires a NAT mapping from the internal address $IP_IDV:636 to 127.0.0.1:$PORT_LDAPS to properly connect to the new tree (in Window > Preferences > NetIQ > Identity Manager > NAT Mapping).
+"
+sed -E 's/(.*)/127.0.0.1\t\1.idm.local/' <<< "$SERVICES"
+echo "
+Designer requires a NAT mapping from the internal address $IP_IDV:$PORT_LDAPS to 127.0.0.1:$PORT_LDAPS to properly connect to the new tree (in Window > Preferences > NetIQ > Identity Manager > NAT Mapping).
 
 The Edirectory CA certificate for the $TREENAME tree can be found at $(pwd)/SSCert.pem to validate LDAP and iMonitor connections.
 "
