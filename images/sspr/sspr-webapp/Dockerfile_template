@@ -4,7 +4,7 @@ WORKDIR /
 
 # fix outdated repo URLs
 COPY ubi.repo /etc/yum.repos.d/ubi.repo
-COPY RPM-GPG-KEY-redhat-release /etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+#COPY RPM-GPG-KEY-redhat-release /etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
 
 # fix timezone handling
 RUN microdnf -y install tzdata
