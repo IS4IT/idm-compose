@@ -1,3 +1,4 @@
+#REPLACE_VARS: $COMMON_PW $PORT_LDAPS
 shopt -s nullglob
 export LDAPTLS_REQCERT=never 
 for ldif in /config/idm/mountfiles/*ldif ; do

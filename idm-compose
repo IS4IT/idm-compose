@@ -53,14 +53,39 @@ Quickly wipe a stack including all data volumes and obsolete images:
 
   $PROGNAME kill; $PROGNAME down -v --remove-orphans --rmi local
 "
+exit
 }
 
-if [ $# -eq 0 ] || [ $# -eq 1 ] && [[ "$*" =~ -?-h(elp)? ]] || [[ "$*" =~ (init|wipe)\ \ *-?-h(elp)? ]]; then
-    print_help
-    exit 0
-elif [[ "$*" =~ wipe ]]; then
+while test -n "$1"; do
+    case "$1" in
+        init|wipe)
+            COMMAND="$1"
+            ;;
+        --help|-h|-\?) 
+            if test -n "$COMMAND"; then
+                print_help
+            else
+                COMPOSE_OPTS="$COMPOSE_OPTS $1"
+            fi
+            ;;
+        *)
+            if test -n "$COMMAND"; then
+                COMMAND_OPTS="$COMMAND_OPTS $1"
+            else
+                COMPOSE_OPTS="$COMPOSE_OPTS $1"
+            fi
+            ;;
+    esac
+    shift
+done
+
+if [[ "$COMMAND" == "wipe" ]]; then
     if docker compose config -q; then
-        read -p "Kill and delete all containers, volumes and images for IDM stack $(docker compose config | grep -E "^name:" | cut -d " " -f 2-) ? "
+        if [[ ! $COMMAND_OPTS =~ -f|--force ]]; then
+            read -p "Kill and delete all containers, volumes and images for IDM stack $(docker compose config | grep -E "^name:" | cut -d " " -f 2-) ? "
+        else
+            REPLY=Yes
+        fi
         if [[ $REPLY =~ ^[yY] ]]; then
             COMPOSE_OPTS=${*//wipe/}
             docker compose $COMPOSE_OPTS kill
@@ -68,18 +93,18 @@ elif [[ "$*" =~ wipe ]]; then
         fi
     fi
     exit $?
-elif [[ ! "$*" =~ init ]]; then
-    docker compose $*
+elif [[ "$COMMAND" == "init" ]]; then
+    if [ ! -f compose.yaml_template ]; then
+        echo "No configuration data found. $PROGNAME must be run from inside a configuration folder."
+        exit 1
+    fi
+else
+    docker compose $COMPOSE_OPTS
     exit $?
-elif [ ! -f compose.yaml_template ]; then
-    echo "No configuration data found. $PROGNAME must be run from inside a configuration folder."
-    exit 1
 fi
 
-[ -f $PROGNAME.conf ] && source $PROGNAME.conf
-
-COMPOSE_OPTS=${*//init/}
 [ -n "${COMPOSE_OPTS}" ] && echo "Executing docker compose with options: ${COMPOSE_OPTS}"
+[ -f $PROGNAME.conf ] && source $PROGNAME.conf
 
 # check requirements
 for command in openssl docker sed envsubst find cut tr keytool cut zip; do
@@ -159,14 +184,8 @@ echo -e "Using internal docker subnet$BOLD $SUBNET $RESET and ports mapped to $B
 
 # clean up workspace
 for file in $(ls *_template) $(find config -name "*_template" -type f); do 
-    echo > ${file//_template/}
+    rm -f ${file//_template/}
 done
-
-# # create config files from templates (1)
-# for file in $(ls *_template); do 
-#     echo "Creating ${file//_template/} from template..."
-#     envsubst < $file > ${file//_template/}
-# done
 
 # # project name can be set various ways, see https://docs.docker.com/compose/how-tos/project-name/
 # STACKNAME=${STACKNAME:-$(docker compose $COMPOSE_OPTS config | grep -E '^name: ' | cut -d " " -f2)}
@@ -174,12 +193,8 @@ done
 # create config files from templates
 for file in $(ls *_template) $(find config images -name "*_template" -type f); do
     echo "Creating ${file//_template/} from template..."
-    if [[ $file =~ import.sh ]]; then
-        # do not replace internal script variables
-        envsubst '$PORT_LDAPS $COMMON_PW' < $file > ${file//_template/}
-    else
-        envsubst < $file > ${file//_template/}
-    fi 
+    REPLACE_VARS=$(grep -E '^#REPLACE_VARS:' $file | cut -d " " -f 2-)
+    envsubst ${REPLACE_VARS} < $file | grep -vE '^#REPLACE_VARS:' > ${file//_template/}
 done
 
 # # save stack/project name to compose.yaml for later use with other compose commands
