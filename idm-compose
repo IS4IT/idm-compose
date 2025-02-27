@@ -56,13 +56,13 @@ Quickly wipe a stack including all data volumes and obsolete images:
 exit
 }
 
-while test -n "$1"; do
+while [[ -n "$1" ]]; do
     case "$1" in
         init|wipe)
             COMMAND="$1"
             ;;
         --help|-h|-\?) 
-            if test -n "$COMMAND"; then
+            if [[ $# = 1 ]] || [[ -n "$COMMAND" ]]; then
                 print_help
             else
                 COMPOSE_OPTS="$COMPOSE_OPTS $1"
@@ -79,7 +79,10 @@ while test -n "$1"; do
     shift
 done
 
-if [[ "$COMMAND" == "wipe" ]]; then
+if [[ -z "$COMMAND" ]]; then
+    docker compose $COMPOSE_OPTS
+    exit $?
+elif [[ "$COMMAND" == "wipe" ]]; then
     if docker compose config -q; then
         if [[ ! $COMMAND_OPTS =~ -f|--force ]]; then
             read -p "Kill and delete all containers, volumes and images for IDM stack $(docker compose config | grep -E "^name:" | cut -d " " -f 2-) ? "
@@ -98,9 +101,6 @@ elif [[ "$COMMAND" == "init" ]]; then
         echo "No configuration data found. $PROGNAME must be run from inside a configuration folder."
         exit 1
     fi
-else
-    docker compose $COMPOSE_OPTS
-    exit $?
 fi
 
 [ -n "${COMPOSE_OPTS}" ] && echo "Executing docker compose with options: ${COMPOSE_OPTS}"
