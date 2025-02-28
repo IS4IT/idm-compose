@@ -51,7 +51,7 @@ Delete a stack, keeping only the persistent data volumes:
 
 Quickly wipe a stack including all data volumes and obsolete images:
 
-  $PROGNAME kill; $PROGNAME down -v --remove-orphans --rmi local
+  $PROGNAME wipe --force
 "
 exit
 }
@@ -62,7 +62,7 @@ while [[ -n "$1" ]]; do
             COMMAND="$1"
             ;;
         --help|-h|-\?) 
-            if [[ $# = 1 ]] || [[ -n "$COMMAND" ]]; then
+            if [[ -z $COMPOSE_OPTS ]] || [[ -n "$COMMAND" ]]; then
                 print_help
             else
                 COMPOSE_OPTS="$COMPOSE_OPTS $1"
