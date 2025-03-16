@@ -294,8 +294,8 @@ if [[ $SERVICES =~ idv ]];then
         echo -n "Waiting for Edirectory to initialize..."
         while ! grep -q "Started NetIQ eDirectory server on host:" <(docker compose $COMPOSE_OPTS logs idv); do
             # work around a timing issue, short of a real solution
-            if docker compose $COMPOSE_OPTS exec -it idv test -f /config/idm/log/idmconfigure.log \
-                && docker compose $COMPOSE_OPTS exec -it idv grep -q "Could not find prompt ID" /config/idm/log/idmconfigure.log ; then
+            if docker compose $COMPOSE_OPTS exec -it idv test -f /config/idm/log/idmconfigure.log 2>/dev/null \
+                && docker compose $COMPOSE_OPTS exec -it idv grep -q "Could not find prompt ID" /config/idm/log/idmconfigure.log 2>/dev/null ; then
                 docker compose $COMPOSE_OPTS exec -it idv echo > /config/idm/log/idmconfigure.log || exit
                 docker compose $COMPOSE_OPTS restart --no-deps idv || exit
             fi
@@ -327,13 +327,13 @@ if [[ $SERVICES =~ osp ]];then
     else
         docker compose $COMPOSE_OPTS restart --no-deps osp || exit
         echo -n "Waiting for OSP to initialize..."
-        while ! grep -q "contains" <(docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -list -keystore /config/osp/tomcat/conf/tomcat.ks -storepass $COMMON_PW) ; do 
+        while ! grep -q "contains" <(docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -list -keystore /config/osp/tomcat/conf/tomcat.ks -storepass $COMMON_PW 2>/dev/null) ; do 
             echo -n "."; sleep 5; done
-        while grep -q "configure.sh" <(docker compose $COMPOSE_OPTS exec -it osp ps -aux) ; do 
+        while grep -q "configure.sh" <(docker compose $COMPOSE_OPTS exec -it osp ps -aux  2>/dev/null) ; do 
             echo -n "."; sleep 5; done; echo -e $DONE
         if [[ $SERVICES =~ idv ]] ;then
             echo -n "Importing tree CA into OSP keystores"
-            while docker compose $COMPOSE_OPTS exec -it osp bash -c "[ ! -f /config/idm/eDirectory_data/data/SSCert.pem ]" ; do 
+            while docker compose $COMPOSE_OPTS exec -it osp bash -c "[ ! -f /config/idm/eDirectory_data/data/SSCert.pem ]" 2>/dev/null; do 
                 echo -n "."; sleep 5; done; echo
             docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -import -trustcacerts -noprompt -alias "${TREENAME}_CA" \
                     -file /config/idm/eDirectory_data/data/SSCert.pem -keystore /config/osp/tomcat/conf/tomcat.ks -storepass "$COMMON_PW" || exit
@@ -358,12 +358,12 @@ if [[ $SERVICES =~ apps ]];then
     else
         docker compose $COMPOSE_OPTS restart --no-deps apps || exit
         # See https://www.netiq.com/documentation/identity-manager-49/identity_apps_admin/data/general-issues-troubleshooting.html#t4aq2qin70e0
-        if ! docker compose $COMPOSE_OPTS exec -it apps grep -q "com.sun.net.ssl.checkRevocation=false" /opt/netiq/idm/apps/tomcat/bin/setenv.sh ; then
+        if ! docker compose $COMPOSE_OPTS exec -it apps grep -q "com.sun.net.ssl.checkRevocation=false" /opt/netiq/idm/apps/tomcat/bin/setenv.sh 2>/dev/null ; then
             docker compose $COMPOSE_OPTS exec -it apps sed -i.bak 's/JAVA_OPTS="/JAVA_OPTS="-Dcom.sun.net.ssl.checkRevocation=false /' /opt/netiq/idm/apps/tomcat/bin/setenv.sh
         fi
         # Import server cert into truststore
         echo -n "Waiting for User App to initialize..."
-        while ! grep -q contains <(docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -list -keystore /config/userapp/tomcat/conf/tomcat.ks -storepass $COMMON_PW) ; do 
+        while ! grep -q contains <(docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -list -keystore /config/userapp/tomcat/conf/tomcat.ks -storepass $COMMON_PW 2>/dev/null) ; do 
             echo -n "."; sleep 5; done; echo
         docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -importkeystore -noprompt \
                 -srckeystore /config/userapp/tomcat/conf/tomcat.ks -srcstorepass "$COMMON_PW" \
@@ -397,8 +397,8 @@ if [[ $SERVICES =~ sspr ]];then
         docker compose $COMPOSE_OPTS cp ./config/silent.properties sspr:/config/
         docker compose $COMPOSE_OPTS start sspr || exit
         echo -n "Waiting for SSPR to initialize..."
-        while docker compose $COMPOSE_OPTS exec -it sspr bash -c "[ ! -f /config/SSPRConfiguration.xml ]" || \
-            ! docker compose $COMPOSE_OPTS exec -it sspr grep -q '</settings>' /config/SSPRConfiguration.xml ; do 
+        while docker compose $COMPOSE_OPTS exec -it sspr bash -c "[ ! -f /config/SSPRConfiguration.xml ]" 2>/dev/null || \
+            ! docker compose $COMPOSE_OPTS exec -it sspr grep -q '</settings>' /config/SSPRConfiguration.xml 2>/dev/null ; do 
         echo -n "."; sleep 5; 
         done; echo -e $DONE
         # Save the frist part of SSPR-generated SSPRConfiguration.xml to local file
