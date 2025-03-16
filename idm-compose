@@ -275,10 +275,14 @@ if [[ $SERVICES =~ db ]] && [[ ! $(docker compose $COMPOSE_OPTS ps --services) =
     docker compose $COMPOSE_OPTS cp ./config/data/init.sql db:/docker-entrypoint-initdb.d/ || exit
 fi
 
-# start first batch of containers
+# login to registry if used
 [[ -n ${VENDOR_REGISTRY} ]] && docker login $(cut -d/ -f1 <<< $VENDOR_REGISTRY)
 
-docker compose $COMPOSE_OPTS start $(grep -E 'db|iman|mq|rl|mail' <<< "$SERVICES")
+# start first batch of containers
+for service in $(grep -E 'db|iman|mq|rl|mail' <<< "$SERVICES"); do
+    docker compose $COMPOSE_OPTS start $service
+done
+
 echo -e $GREEN"INFO:$RESET You can follow the init progess in more detail by running '$BOLD idm-compose logs -f $RESET' in a second terminal"
 
 # wait for Edir to start and import any custom *.ldif or *.sch files
