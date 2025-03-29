@@ -21,3 +21,6 @@ config/idm/mountfiles/smtp.ldif
 config/mail/mail.key
 config/mail/mail.crt
 config/idm/mountfiles/import.sh
+config/mail/smtp.ldif
+stacks
+idm-compose.env

@@ -32,6 +32,7 @@ services:
       platforms: 
         - "linux/amd64"
     platform: linux/amd64
+    profiles: ["idv","dirxml","apps","all"]
     restart: unless-stopped
     stop_grace_period: 300s
     environment:
@@ -61,7 +62,7 @@ services:
       platforms: 
         - "linux/amd64"
     platform: linux/amd64
-    profiles: ${RL_PROFILES}
+    profiles: ["rl","dirxml","all"]
     restart: unless-stopped
     stop_grace_period: 100s
     environment:
@@ -85,7 +86,7 @@ services:
       platforms: 
         - "linux/amd64"
     platform: linux/amd64
-    profiles: ${IDCON_PROFILES}
+    profiles: ["idcon","all"]
     restart: on-failure:5
     environment:
       TZ: Europe/Berlin
@@ -115,7 +116,7 @@ services:
       platforms: 
         - "linux/amd64"
     platform: linux/amd64
-    profiles: ${IMAN_PROFILES}
+    profiles: ["iman","all"]
     restart: on-failure:5
     environment:
       TZ: Europe/Berlin
@@ -138,7 +139,7 @@ services:
     <<: *common
     # Using the official platform-specific image
     image: postgres:14.14
-    profiles: ${APPS_PROFILES}
+    profiles: ["db","apps","all"]
     restart: unless-stopped
     cpuset: '1'
     pids_limit: 300
@@ -164,7 +165,7 @@ services:
     <<: *common
     # Using the official platform-specific image
     image: maildev/maildev:latest
-    profiles: ${MAIL_PROFILES}
+    profiles: ["mail","all"]
     restart: unless-stopped
     environment:
       MAILDEV_WEB_PORT: $PORT_MAIL
@@ -195,7 +196,7 @@ services:
     platform: linux/amd64
     depends_on:
       - idv
-    profiles: ${APPS_PROFILES}
+    profiles: ["osp","apps","all"]
     restart: unless-stopped
     stop_grace_period: 180s
     environment:
@@ -241,7 +242,7 @@ services:
     depends_on:
       - db
       - osp
-    profiles: ${APPS_PROFILES}
+    profiles: ["apps","all"]
     restart: on-failure:5
     stop_grace_period: 300s
     cpuset: '2'
@@ -269,7 +270,7 @@ services:
     platform: linux/amd64
     depends_on:
       - apps
-    profiles: ${APPS_PROFILES}
+    profiles: ["apps","all"]
     restart: on-failure:5
     stop_grace_period: 180s
     cpuset: '1'
@@ -297,7 +298,7 @@ services:
     platform: linux/amd64
     depends_on:
       - osp
-    profiles: ${APPS_PROFILES}
+    profiles: ["sspr","apps","all"]
     restart: on-failure:5
     stop_grace_period: 180s
     cpuset: '1'
