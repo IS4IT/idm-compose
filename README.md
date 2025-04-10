@@ -38,10 +38,36 @@ Tested on
 
 ## Quickstart
 
-- clone or copy this folder
-- run `./idm-compose init`
+#### Create a new IDM stack
 
-Optional:
+- clone or copy this folder
+- run `./idm-compose init (<1..63>)`
+
+#### List all IDM stacks (along with all non-IDM stacks)
+
+- run `./idm-compose ls`
+
+#### Switch to an IDM stack
+
+- run `./idm-compose stack <1..63>`
+
+#### Print current IDM stack
+
+- run `./idm-compose stack`
+
+#### Start an IDM stack
+
+- run `./idm-compose start`
+
+#### Stop an IDM stack
+
+- run `./idm-compose stop`
+
+#### Delete an IDM stack
+
+- run `./idm-compose wipe`
+
+#### Optional:
 - change defaults in idm.compose.conf
 - add files/folders to `config` subfolder for further customization, e.g.
   - add .jar/.so files to the `config/idm/mountfiles` and `config/rdxml/mountfiles` subfolders to install or updated shims or libraries
