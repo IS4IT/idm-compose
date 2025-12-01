@@ -1,5 +1,5 @@
 #REPLACE_VARS: ${VENDOR_REGISTRY}
-FROM ${VENDOR_REGISTRY}identityconsole:1.9.0.0000-533
+FROM ${VENDOR_REGISTRY}identityconsole:25.4
 USER root
 WORKDIR /
 
@@ -14,8 +14,8 @@ RUN rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.
 RUN microdnf -y install inotify-tools
 
 # comment out obsolete parameter in edirapi.conf
-RUN sed -i -e 's/\(cp ${DATA_DIR}\/edirapi.conf\)/#\1/' \
-           -e '/cp ${DATA_DIR}\/edirapi.conf/a\ \tsed -e "s/^edir-hosts/#edir-hosts/" ${DATA_DIR}/edirapi.conf > ${CONF_DIR}/edirapi.conf' /opt/novell/eDirAPI/sbin/start.sh
+#RUN sed -i -e 's/\(cp ${DATA_DIR}\/edirapi.conf\)/#\1/' \
+#           -e '/cp ${DATA_DIR}\/edirapi.conf/a\ \tsed -e "s/^edir-hosts/#edir-hosts/" ${DATA_DIR}/edirapi.conf > ${CONF_DIR}/edirapi.conf' /opt/novell/eDirAPI/sbin/start.sh
 
 # forward setup log to docker log
-RUN sed -i -e '/^ *prepare_start_prerequisites *$/i tail -qFn0 /config/eDirAPI/var/log/container-startup.log /config/eDirAPI/var/log/edirapi.log 2>/dev/null &' /opt/novell/eDirAPI/sbin/start.sh
+#RUN sed -i -e '/^ *prepare_start_prerequisites *$/i tail -qFn0 /config/eDirAPI/var/log/container-startup.log /config/eDirAPI/var/log/edirapi.log 2>/dev/null &' /opt/novell/eDirAPI/sbin/start.sh

@@ -1,5 +1,6 @@
 #REPLACE_VARS: ${VENDOR_REGISTRY}
-FROM ${VENDOR_REGISTRY}sspr/sspr-webapp:4.8.0.1-533
+#FROM ${VENDOR_REGISTRY}sspr/sspr-webapp:4.8.0.1-533
+FROM ${VENDOR_REGISTRY}sspr/sspr-webapp:4.8.1.0-591
 USER root
 WORKDIR /
 

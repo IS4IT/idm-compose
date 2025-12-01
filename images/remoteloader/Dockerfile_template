@@ -1,6 +1,7 @@
 #REPLACE_VARS: ${VENDOR_REGISTRY}
 #FROM ${VENDOR_REGISTRY}remoteloader:idm-4.10.0-533
-FROM ${VENDOR_REGISTRY}remoteloader:idm-4.10.1-459
+#FROM ${VENDOR_REGISTRY}remoteloader:idm-4.10.1-459
+FROM ${VENDOR_REGISTRY}remoteloader:idm-4.10.2-591
 USER root
 WORKDIR /
 
