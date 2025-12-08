@@ -62,7 +62,7 @@ ID_VAULT_CONF="/etc/opt/novell/eDirectory/conf/nds.conf"
 ###
 # Identity Vault host address
 ### 
-ID_VAULT_HOST="idv.idm.local"
+ID_VAULT_HOST="idv.$DNS_DOMAIN"
  
 ###
 # Indicates whether it is for a new tree or an existing tree.
@@ -172,7 +172,7 @@ INSTALL_ACTIVEMQ="false"
 ###
 # ActiveMQ Server
 ### 
-ACTIVEMQ_SERVER_HOST="mq.idm.local"
+ACTIVEMQ_SERVER_HOST="mq.$DNS_DOMAIN"
  
 ###
 # ActiveMQ Server TCP Port
@@ -183,7 +183,7 @@ EXTERNAL_SSO_SERVER="y"
 ###
 # One SSO Server DNS/IP address
 ### 
-SSO_SERVER_HOST="osp.idm.local"
+SSO_SERVER_HOST="osp.$DNS_DOMAIN"
  
 ###
 # One SSO server SSL port
@@ -274,7 +274,7 @@ SSPR_COMM_TOMCAT_KEYSTORE_PWD="$COMMON_PW"
 ###
 # SSPR Server DNS/IP address
 ### 
-SSPR_SERVER_HOST="sspr.idm.local"
+SSPR_SERVER_HOST="sspr.$DNS_DOMAIN"
  
 ###
 # Application server HTTPS port
@@ -309,7 +309,7 @@ UA_ADMIN_PWD="$COMMON_PW"
 ###
 # Application server DNS/IP address
 ### 
-UA_SERVER_HOST="apps.idm.local"
+UA_SERVER_HOST="apps.$DNS_DOMAIN"
  
 ###
 # Identity Applications server SSL port
@@ -349,7 +349,7 @@ INSTALL_PG_DB="n"
 ###
 # Identity Applications and Workflow Engine database host
 ### 
-UA_WFE_DB_HOST="db.idm.local"
+UA_WFE_DB_HOST="db.$DNS_DOMAIN"
  
 ###
 # Identity Applications and Workflow Engine database port
@@ -439,7 +439,7 @@ UA_COMM_TOMCAT_KEYSTORE_PWD="$COMMON_PW"
 ###
 # Form Renderer DNS/IP address
 ### 
-FR_SERVER_HOST="forms.idm.local"
+FR_SERVER_HOST="forms.$DNS_DOMAIN"
  
 ###
 # NGINX port

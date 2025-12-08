@@ -149,6 +149,7 @@ done
 # Default parameters, can be overridden on the command line or in idm-compose.conf
 export VENDOR_REGISTRY
 export SUBNET=${SUBNET:-$DEFAULT_SUBNET}
+export DNS_DOMAIN=${DNS_DOMAIN:-$DEFAULT_DNS_DOMAIN}
 export DOCKER_HOST_BINDING=${DOCKER_HOST_BINDING:-${DEFAULT_HOST_BINDING}}
 export COMMON_PW=${COMMON_PW:-${DEFAULT_COMMON_PW}}
 
@@ -222,9 +223,9 @@ SERVICES=$(docker compose $COMPOSE_OPTS config --services | sort)
 echo "Installing services: "$SERVICES
 
 # generate CA and server key/cert if not provided or already available
-if [ ! -f config/data/keys.pfx ]; then
+if [ ! -f config/data/keys.${DNS_DOMAIN}.pfx ]; then
     # generate local CA and server key/cert
-    if [ ! -f server.crt ] || [ ! -f server.key ] || [ ! -f ca.crt ]; then
+    if [ ! -f server.${DNS_DOMAIN}.crt ] || [ ! -f server.${DNS_DOMAIN}.key ] || [ ! -f ca.crt ]; then
         # generate CA and wildcard server cert 
         if [ ! -f ca.key ] || [ ! -f ca.crt ]; then
             echo "Creating CA..."
@@ -233,25 +234,29 @@ if [ ! -f config/data/keys.pfx ]; then
         fi
         # the same wildcard server certificate will be used for all containers and (almost all) services
         echo "Creating server certificate..."
-        openssl req -new -noenc -out server.csr -newkey rsa:4096 -keyout server.key -subj '/CN=*.idm.local' \
-                    -addext "subjectAltName=DNS:*.idm.local,IP:127.0.0.1" \
+        openssl req -new -noenc -out server.${DNS_DOMAIN}.csr -newkey rsa:4096 -keyout server.${DNS_DOMAIN}.key \
+                    -subj "/CN=*.${DNS_DOMAIN}" \
+                    -addext "subjectAltName=DNS:*.${DNS_DOMAIN},IP:127.0.0.1" \
                     -addext "basicConstraints=CA:FALSE" \
                     -addext "keyUsage=digitalSignature,keyEncipherment" \
                     -addext "extendedKeyUsage=serverAuth"
-        openssl x509 -req -days 3650 -sha384 -in server.csr -CA ca.crt -CAkey ca.key -passin pass:changeit -out server.crt \
+        openssl x509 -req -days 3650 -sha384 -in server.${DNS_DOMAIN}.csr \
+                    -CA ca.crt -CAkey ca.key -passin pass:changeit -out server.${DNS_DOMAIN}.crt \
                     -copy_extensions copy -CAcreateserial
     else
-        echo "Using existing server.key and server.crt"
+        echo "Using existing server.${DNS_DOMAIN}.key and server.${DNS_DOMAIN}.crt"
     fi
     echo "Creating keystores..."
-    openssl pkcs12 -export -in server.crt -inkey server.key -out config/data/keys.pfx -name tomcat -passout pass:$COMMON_PW || exit
-    keytool -J-Duser.language=en -import -noprompt -file ca.crt -trustcacerts -alias idm-local_ca -keystore config/data/keys.pfx -storepass "$COMMON_PW" || exit
+    openssl pkcs12 -export -in server.${DNS_DOMAIN}.crt -inkey server.${DNS_DOMAIN}.key -out config/data/keys.${DNS_DOMAIN}.pfx -name tomcat -passout pass:$COMMON_PW || exit
+    keytool -J-Duser.language=en -import -noprompt -file ca.crt -trustcacerts -alias idm-local_ca -keystore config/data/keys.${DNS_DOMAIN}.pfx -storepass "$COMMON_PW" || exit
     # remove previous iManager cert so it gets recreated
     rm -f ca.der images/iManager/.p12
 else
-    echo "Using existing keystore ./config/data/keys.pfx"
+    echo "Using existing keystore ./config/data/keys.${DNS_DOMAIN}.pfx"
 fi
+
 # Print server certificate details
+cp -v ./config/data/keys.${DNS_DOMAIN}.pfx ./config/data/keys.pfx
 keytool -J-Duser.language=en -list -keystore config/data/keys.pfx -storepass "$COMMON_PW" | grep -E 'contains|Entry'
 openssl x509 -in config/data/keys.pfx -passin pass:$COMMON_PW -text -noout | grep -E 'Not|local' | sed "s/  */ /g"
 
@@ -273,8 +278,8 @@ fi
 
 if [[ $SERVICES =~ mail ]];then
     mkdir -p config/mail/data
-    cp -v server.crt config/mail/mail.crt
-    openssl rsa -in server.key -out config/mail/mail.key
+    cp -v server.${DNS_DOMAIN}.crt config/mail/mail.crt
+    openssl rsa -in server.${DNS_DOMAIN}.key -out config/mail/mail.key
     chmod 644 config/mail/mail*
     mv -v config/mail/smtp.ldif config/idm/mountfiles/
 fi
@@ -335,7 +340,7 @@ if [[ $SERVICES =~ idcon ]];then
             docker compose $COMPOSE_OPTS exec -it idv bash -c "echo -n 'Adding symlink  '; ln -svf /config/idm/eDirectory_data/data/SSCert.pem /config/data" || exit
         fi
         docker compose $COMPOSE_OPTS restart --no-deps idcon || exit
-        docker compose $COMPOSE_OPTS exec -it idcon sed -i.bak -E "s#(Server IP / DNS. value=.)#\1idv.idm.local:$PORT_LDAPS#" /var/opt/novell/identityconsole/login.html || exit
+        docker compose $COMPOSE_OPTS exec -it idcon sed -i.bak -E "s#(Server IP / DNS. value=.)#\1idv.${DNS_DOMAIN}:$PORT_LDAPS#" /var/opt/novell/identityconsole/login.html || exit
     fi
 fi
 
@@ -447,27 +452,30 @@ fi
 echo "
 The following services should soon be available for login as 'cn=admin,ou=sa,o=system' with password '$COMMON_PW' (use NDAP format for iMonitor/iManager):
 "
-[[ $SERVICES =~ idcon ]] && echo " ID Console ->	https://idcon.idm.local:$PORT_IDCON/identityconsole"
-[[ $SERVICES =~ idv ]]   && echo " LDAP       ->	ldap://idv.idm.local:$PORT_LDAP" \
-                         && echo "            ->	ldaps://idv.idm.local:$PORT_LDAPS" \
-                         && echo " iMonitor   ->	https://idv.idm.local:$PORT_IMON/nds"
-[[ $SERVICES =~ iman ]]  && echo " iManager   ->	https://iman.idm.local:$PORT_IMAN/nps"
-[[ $SERVICES =~ mail ]]  && echo " WebMail    ->	https://mail.idm.local:$PORT_MAIL"
+[[ $SERVICES =~ idcon ]] && echo " ID Console ->	https://idcon.${DNS_DOMAIN}:$PORT_IDCON/identityconsole"
+[[ $SERVICES =~ idv ]]   && echo " LDAP       ->	ldap://idv.${DNS_DOMAIN}:$PORT_LDAP" \
+                         && echo "            ->	ldaps://idv.${DNS_DOMAIN}:$PORT_LDAPS" \
+                         && echo " iMonitor   ->	https://idv.${DNS_DOMAIN}:$PORT_IMON/nds"
+[[ $SERVICES =~ iman ]]  && echo " iManager   ->	https://iman.${DNS_DOMAIN}:$PORT_IMAN/nps"
+[[ $SERVICES =~ mail ]]  && echo " WebMail    ->	https://mail.${DNS_DOMAIN}:$PORT_MAIL"
 
 [[ $SERVICES =~ apps|sspr ]] && echo "
 Use 'cn=appadmin,ou=sa,o=data' with password '$COMMON_PW' to log in to:
 "
-[[ $SERVICES =~ apps ]]  && echo " UserApp    ->	https://apps.idm.local:$PORT_APPS/idmdash"
-[[ $SERVICES =~ sspr ]]  && echo " SSPR       ->	https://sspr.idm.local:$PORT_SSPR/sspr"
-echo "
-Make sure to import $(pwd)/ca.crt as a trusted root CA certificate into your browser and add the following lines to /etc/hosts on your Docker host:
-"
-sed -E 's/(.*)/127.0.0.1\t\1.idm.local/' <<< "$SERVICES"
-echo "
+[[ $SERVICES =~ apps ]]  && echo " UserApp    ->	https://apps.${DNS_DOMAIN}:$PORT_APPS/idmdash"
+[[ $SERVICES =~ sspr ]]  && echo " SSPR       ->	https://sspr.${DNS_DOMAIN}:$PORT_SSPR/sspr"
+
+[[ $SERVICES =~ idv ]] && echo "
 Designer requires a NAT mapping from the internal address $IP_IDV:$PORT_LDAPS to 127.0.0.1:$PORT_LDAPS to properly connect to the new tree (in Window > Preferences > NetIQ > Identity Manager > NAT Mapping).
 
 The Edirectory CA certificate for the $TREENAME tree can be found at $(pwd)/SSCert.pem to validate LDAP and iMonitor connections.
 "
+
+
+echo "Make sure to import $(pwd)/ca.crt as a trusted root CA certificate into your browser and add the following lines to /etc/hosts on your Docker host:
+"
+sed -E "s/(.*)/127.0.0.1\t\1.${DNS_DOMAIN}/" <<< "$SERVICES" | grep -vE 'mp_(init|data|connid|ninja)' | sed -e 's/mp_server/mp/'
+echo
 
 exit $? # protect running script against appends
 } 

@@ -2,10 +2,10 @@
 dn: cn=Default Notification Collection,cn=Security
 changetype: modify
 replace: notfSMTPEmailFrom
-notfSMTPEmailFrom: ${STACKNAME}@idm.local
+notfSMTPEmailFrom: ${STACKNAME}@${DNS_DOMAIN}
 -
 replace: notfSMTPEmailHost
-notfSMTPEmailHost: mail.idm.local:${PORT_SMTP}
+notfSMTPEmailHost: mail.${DNS_DOMAIN}:${PORT_SMTP}
 -
 replace: notfSMTPTimeout
 notfSMTPTimeout: 0

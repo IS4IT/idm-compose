@@ -2,19 +2,22 @@ name: ${STACKNAME}
 
 # common settings for all containers
 x-common: &common
-  domainname: idm.local
+  domainname: $DNS_DOMAIN
   extra_hosts: 
-    idv.idm.local: $IP_IDV
-    rl.idm.local: $IP_RL
-    idcon.idm.local: $IP_IDCON
-    iman.idm.local: $IP_IMAN
-    osp.idm.local: $IP_OSP
-    apps.idm.local: $IP_APPS
-    forms.idm.local: $IP_FORMS
-    sspr.idm.local: $IP_SSPR
-    db.idm.local: $IP_DB
-    mail.idm.local: $IP_MAIL
-    # mq.idm.local: $IP_MQ
+    idv.$DNS_DOMAIN: $IP_IDV
+    rl.$DNS_DOMAIN: $IP_RL
+    idcon.$DNS_DOMAIN: $IP_IDCON
+    iman.$DNS_DOMAIN: $IP_IMAN
+    osp.$DNS_DOMAIN: $IP_OSP
+    apps.$DNS_DOMAIN: $IP_APPS
+    forms.$DNS_DOMAIN: $IP_FORMS
+    sspr.$DNS_DOMAIN: $IP_SSPR
+    db.$DNS_DOMAIN: $IP_DB
+    mail.$DNS_DOMAIN: $IP_MAIL
+    # mq.$DNS_DOMAIN: $IP_MQ
+    mp.$DNS_DOMAIN: $IP_MP_SERV
+    mp_data.$DNS_DOMAIN: $IP_MP_DATA
+    mp_connid.$DNS_DOMAIN: $IP_MP_CONNID
   logging:
     driver: local
     options:

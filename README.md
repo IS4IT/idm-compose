@@ -106,7 +106,7 @@ Individual profiles are predefined for each container, plus the following combin
 
 Unlike the single server setup described in the documentation, which uses `host` networking, `idm-compose` sets up `bridge` networking and only selected ports are mapped to the `localhost` interface. This allows for multiple isolated environments to co-exist and does not expose them to the outside world.
 
-Networking can be configured in `idm-compose.conf` to bind to `0.0.0.0` or just `localhost`. `0.0.0.0` is required if docker runs inside a virtual machine and IDM shall be accessible from the host machine. In that case the `*.idm.local` entries in `/etc/hosts` need to point to the VM's IP address instead of `127.0.0.1`
+Networking can be configured in `compose.yaml_template` to bind to the default `0.0.0.0` instead of just `localhost`, which is required if docker runs inside a virtual machine and IDM shall be accessible from the host machine. In that case the `*.idm.local` entries in `/etc/hosts` need to point to the VM's IP address instead of `127.0.0.1`
 
 Instead of using networking parameters derived from the stack id you can override them by setting the `SUBNET`, `PORT_BASE` and `TREENAME` environment variables prior to calling `idm-compose`, to avoid conflicts with other software.
 
@@ -139,6 +139,16 @@ While `idm-compose` is working you may want to follow its progress in more detai
 ```
 ```
 ./idm-compose exec idv tail -qFn0 /config/userapp/tomcat/logs/catalina.out /config/osp/tomcat/logs/catalina.out
+```
+
+In order to pull images form hub.is4it.de, you may need to login first with `docker login hub.is4it.de`
+
+Pulling images concurrently does not work well with hub.is4it.de, to prevent this configure your docker deamon with:
+```
+{
+    "max-concurrent-uploads": 1,
+    "max-concurrent-downloads": 1
+}
 ```
 
 ## Known issues
