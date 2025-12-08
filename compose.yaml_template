@@ -141,7 +141,7 @@ services:
   db:
     <<: *common
     # Using the official platform-specific image
-    image: postgres:14.14
+    image: postgres:14.16
     profiles: ["db","apps","all"]
     restart: unless-stopped
     cpuset: '1'
