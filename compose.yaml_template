@@ -28,7 +28,6 @@ services:
 
   idv:
     <<: *common
-    # image: ${IMAGE_PREFIX}/identityengine:idm-4.10.0-533
     pull_policy: never
     build: 
       context: images/identityengine
@@ -58,7 +57,6 @@ services:
 
   rl:
     <<: *common
-    # image: ${IMAGE_PREFIX}/remoteloader:idm-4.10.0-533
     pull_policy: never
     build: 
       context: images/remoteloader
@@ -82,7 +80,6 @@ services:
   
   idcon:
     <<: *common
-    # image: ${IMAGE_PREFIX}/identityconsole:1.9.0.0000
     pull_policy: never
     build:
       context: images/identityconsole
@@ -112,7 +109,6 @@ services:
 
   iman:
     <<: *common
-    # image: ${IMAGE_PREFIX}/imanager:3.2.6-p3
     pull_policy: never
     build:
       context: images/imanager
@@ -190,7 +186,6 @@ services:
 
   osp:
     <<: *common
-    # image: ${IMAGE_PREFIX}/osp:idm-4.10.0-533
     pull_policy: never
     build:
       context: images/osp
@@ -236,7 +231,6 @@ services:
 
   apps:
     <<: *common
-    # image: ${IMAGE_PREFIX}/identityapplication:idm-4.10.0-533
     build:
       context: images/userapp
       platforms: 
@@ -265,7 +259,6 @@ services:
 
   forms:
     <<: *common
-    # image: ${IMAGE_PREFIX}/formrenderer:idm-4.9.0-580
     build:
       context: images/forms
       platforms: 
@@ -293,7 +286,6 @@ services:
 
   sspr:
     <<: *common
-    # image: ${IMAGE_PREFIX}/sspr/sspr-webapp:4.8.0.1-533
     build:
       context: images/sspr/sspr-webapp
       platforms: 
@@ -320,6 +312,111 @@ services:
     volumes:
       - sspr:/config
 
+  mp_server:
+    <<: *common
+    image: evolveum/midpoint:${MP_VER:-latest}-alpine
+    profiles: ["midpoint","all"]
+    hostname: mp
+    depends_on:
+      mp_init:
+        condition: service_completed_successfully
+      mp_data:
+        condition: service_started
+    command: [ "/opt/midpoint/bin/midpoint.sh", "container" ]
+    ports:
+      - $PORT_MP_SERV:8080
+    environment:
+     - MP_SET_midpoint_administrator_initialPassword=T3stPw890uio
+     - MP_SET_midpoint_repository_jdbcUsername=midpoint
+     - MP_SET_midpoint_repository_jdbcPassword=secret.db.pw.007
+     - MP_SET_midpoint_repository_jdbcUrl=jdbc:postgresql://mp_data:5432/midpoint
+     - MP_SET_midpoint_repository_database=postgresql
+     - MP_UNSET_midpoint_repository_hibernateHbm2ddl=1
+     - MP_NO_ENV_COMPAT=1
+    networks:
+      default:
+        ipv4_address: $IP_MP_SERV
+    volumes:
+     - mp_home:/opt/midpoint/var
+
+  # mp_ninja:
+  #   <<: *common
+  #   image: evolveum/midpoint:${MP_VER:-latest}-alpine
+  #   profiles: ["midpoint","all"]
+  #   command: [ "tail", "-f", "/dev/null" ]
+  #   depends_on:
+  #     mp_data:
+  #       condition: service_started
+  #   environment:
+  #    - MP_SET_midpoint_administrator_initialPassword=T3stPw890uio
+  #    - MP_SET_midpoint_repository_jdbcUsername=midpoint
+  #    - MP_SET_midpoint_repository_jdbcPassword=secret.db.pw.007
+  #    - MP_SET_midpoint_repository_jdbcUrl=jdbc:postgresql://mp_data:5432/midpoint
+  #    - MP_SET_midpoint_repository_database=postgresql
+  #    - MP_UNSET_midpoint_repository_hibernateHbm2ddl=1
+  #    - MP_NO_ENV_COMPAT=1
+  #   networks:
+  #     default:
+  #       ipv4_address: 172.77.7.24
+  #   volumes:
+  #    - mp_home:/opt/midpoint/var
+
+  mp_connid:
+    <<: *common
+    image: is4it/connid-connector-server:1.6.0.0
+    profiles: ["midpoint","all"]
+    hostname: mp_connid
+    networks:
+      default:
+        ipv4_address: $IP_MP_CONNID
+
+  mp_data:
+    <<: *common
+    image: postgres:17-alpine
+    profiles: ["midpoint","all"]
+    environment:
+     - POSTGRES_PASSWORD=secret.db.pw.007
+     - POSTGRES_USER=midpoint
+     - POSTGRES_INITDB_ARGS=--lc-collate=en_US.utf8 --lc-ctype=en_US.utf8
+    networks:
+      default:
+        ipv4_address: $IP_MP_DATA
+    volumes:
+     - mp_data:/var/lib/postgresql/data
+     - mp_backup:/backup
+
+  mp_init:
+    <<: *common
+    image: evolveum/midpoint:${MP_VER:-latest}-alpine
+    profiles: ["midpoint","all"]
+    command: >
+      bash -c "
+      cd /opt/midpoint ;
+      bin/midpoint.sh init-native ;
+      echo ' - - - - - - ' ;
+      bin/ninja.sh -B info >/dev/null 2>/tmp/ninja.log ;
+      grep -q \"ERROR\" /tmp/ninja.log && (
+      bin/ninja.sh run-sql --create --mode REPOSITORY  ;
+      bin/ninja.sh run-sql --create --mode AUDIT
+      ) ||
+      echo -e '\\n Repository init is not needed...' ;
+      "
+    depends_on:
+     - mp_data
+    ports:
+      - $PORT_MP_DATA:5432
+    environment:
+     - MP_SET_midpoint_repository_jdbcUsername=midpoint
+     - MP_SET_midpoint_repository_jdbcPassword=secret.db.pw.007
+     - MP_SET_midpoint_repository_jdbcUrl=jdbc:postgresql://mp_data:5432/midpoint
+     - MP_SET_midpoint_repository_database=postgresql
+     - MP_INIT_CFG=/opt/midpoint/var
+    networks:
+      default:
+        ipv4_address: $IP_MP_INIT
+    volumes:
+     - mp_home:/opt/midpoint/var
+
 networks:
   default:
     driver: bridge
@@ -336,3 +433,6 @@ volumes:
   cache:
   db:
   sspr:
+  mp_home:
+  mp_data:
+  mp_backup:

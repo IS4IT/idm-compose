@@ -56,8 +56,6 @@ Quickly wipe a stack including all data volumes, obsolete images and its compose
 exit
 }
 
-COMPOSE_OPTS="--project-directory ."
-
 while [[ -n "$1" ]]; do
     case "$1" in
         stack|init|wipe)
@@ -85,7 +83,12 @@ while [[ -n "$1" ]]; do
     shift
 done
 
+COMPOSE_OPTS="--project-directory . $COMPOSE_OPTS"
+
 if [[ $COMMAND =~ stack|init|wipe ]]; then
+    if [[ ! -f $PROGNAME.env ]];then
+        STACK=${STACK:-1}
+    fi
     if [[ $STACK ]]; then
         echo "Switching to stack $STACK..."
         STACKDIR="stacks/$(printf %02d $STACK)"
@@ -182,6 +185,10 @@ export IP_SSPR=${IP_SSPR:-$NET.9}
 export IP_DB=${IP_DB:-$NET.10}
 # export IP_MQ=${IP_MQ:-$NET.11}
 export IP_MAIL=${IP_MAIL:-$NET.12}
+export IP_MP_SERV=${IP_MP_SERV:-$NET.20}
+export IP_MP_DATA=${IP_MP_DATA:-$NET.21}
+export IP_MP_INIT=${IP_MP_INIT:-$NET.22}
+export IP_MP_CONNID=${IP_MP_CONNID:-$NET.23}
 
 export PORT_SMTP=${PORT_SMTP:-$((PORT_BASE + 25))}
 export PORT_MAIL=${PORT_MAIL:-$((PORT_BASE + 447))}
@@ -196,6 +203,10 @@ export PORT_OSP=${PORT_OSP:-$((PORT_BASE + 444))}
 export PORT_SSPR=${PORT_SSPR:-$((PORT_BASE + 445))}
 export PORT_FORMS=${PORT_FORMS:-$((PORT_BASE + 446))}
 export PORT_DB=${PORT_DB:-$((PORT_BASE + 532))}
+export PORT_MP_SERV=${PORT_MP_SERV:-$((PORT_BASE + 180))}
+export PORT_MP_DATA=${PORT_MP_DATA:-$((PORT_BASE + 132))}
+
+[[ $MP_VER ]] && export MP_VER
 
 GREEN='\033[0;32m'
 RESET='\033[0m'
@@ -209,7 +220,11 @@ echo -e "Using internal docker subnet$BOLD $SUBNET $RESET and ports mapped to $B
 for file in $(ls *_template) $(find config images -name "*_template" -type f); do
     echo "Creating ${file//_template/} from template..."
     REPLACE_VARS="$(grep -E '^#REPLACE_VARS:' $file | cut -d " " -f 2-)"
-    envsubst ${REPLACE_VARS} < $file | grep -vE '^#REPLACE_VARS:' > ${file//_template/}
+    if [[ $REPLACE_VARS ]]; then
+        envsubst "${REPLACE_VARS}" < $file | grep -vE '^#REPLACE_VARS:' > ${file//_template/}
+    else
+        envsubst < $file > ${file//_template/}
+    fi
 done
 
 # save stack options to stack dir for later use
@@ -286,7 +301,7 @@ fi
 
 # create containers, networks and volumes
 [[ $COMPOSE_BAKE ]] && export COMPOSE_BAKE
-docker compose $COMPOSE_OPTS create --no-recreate --remove-orphans || exit
+docker compose $COMPOSE_OPTS create --build --no-recreate --remove-orphans || exit
 
 # copy config folder contents to config volume (mounted at /config in idv/idcon/iman/mq/apps/osp containers)
 if [[ $SERVICES =~ idv|idcon|iman|mq|apps|osp|rl ]]; then
@@ -302,11 +317,11 @@ fi
 [[ $VENDOR_REGISTRY ]] && docker login $(cut -d/ -f1 <<< $VENDOR_REGISTRY)
 
 # start first batch of containers
-for service in $(grep -E 'db|iman|mq|rl|mail' <<< "$SERVICES"); do
+for service in $(grep -E 'db|iman|mq|rl|mail|mp_server' <<< "$SERVICES"); do
     docker compose $COMPOSE_OPTS start $service
 done
 
-echo -e $GREEN"INFO:$RESET You can follow the init progess in more detail by running $BOLD idm-compose logs -f $RESET in a second terminal"
+echo -e $GREEN"HINT:$RESET You can follow the init progress in more detail by running $BOLD idm-compose logs -f $RESET in a second terminal"
 
 # wait for Edir to start and import any custom *.ldif or *.sch files
 if [[ $SERVICES =~ idv ]];then
@@ -350,13 +365,13 @@ if [[ $SERVICES =~ osp ]];then
     else
         docker compose $COMPOSE_OPTS restart --no-deps osp || exit
         echo -n "Waiting for OSP to initialize..."
-        while ! grep -q "contains" <(docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -list -keystore /config/osp/tomcat/conf/tomcat.ks -storepass $COMMON_PW 2>/dev/null) ; do 
+        while ! grep -q "contains" <(docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -list -keystore /config/osp/tomcat/conf/tomcat.ks -storepass $COMMON_PW) ; do 
             echo -n "."; sleep 5; done
-        while grep -q "configure.sh" <(docker compose $COMPOSE_OPTS exec -it osp ps -aux  2>/dev/null) ; do 
+        while grep -q "configure.sh" <(docker compose $COMPOSE_OPTS exec -it osp ps -aux) ; do 
             echo -n "."; sleep 5; done; echo -e $DONE
         if [[ $SERVICES =~ idv ]] ;then
             echo -n "Importing tree CA into OSP keystores"
-            while docker compose $COMPOSE_OPTS exec -it osp bash -c "[ ! -f /config/idm/eDirectory_data/data/SSCert.pem ]" 2>/dev/null; do 
+            while docker compose $COMPOSE_OPTS exec -it osp bash -c "[ ! -f /config/idm/eDirectory_data/data/SSCert.pem ]" ; do 
                 echo -n "."; sleep 5; done; echo
             docker compose $COMPOSE_OPTS exec -it osp /opt/netiq/common/jre/bin/keytool -import -trustcacerts -noprompt -alias "${TREENAME}_CA" \
                     -file /config/idm/eDirectory_data/data/SSCert.pem -keystore /config/osp/tomcat/conf/tomcat.ks -storepass "$COMMON_PW" || exit
@@ -381,12 +396,12 @@ if [[ $SERVICES =~ apps ]];then
     else
         docker compose $COMPOSE_OPTS restart --no-deps apps || exit
         # See https://www.netiq.com/documentation/identity-manager-49/identity_apps_admin/data/general-issues-troubleshooting.html#t4aq2qin70e0
-        if ! docker compose $COMPOSE_OPTS exec -it apps grep -q "com.sun.net.ssl.checkRevocation=false" /opt/netiq/idm/apps/tomcat/bin/setenv.sh 2>/dev/null ; then
+        if ! docker compose $COMPOSE_OPTS exec -it apps grep -q "com.sun.net.ssl.checkRevocation=false" /opt/netiq/idm/apps/tomcat/bin/setenv.sh ; then
             docker compose $COMPOSE_OPTS exec -it apps sed -i.bak 's/JAVA_OPTS="/JAVA_OPTS="-Dcom.sun.net.ssl.checkRevocation=false /' /opt/netiq/idm/apps/tomcat/bin/setenv.sh
         fi
         # Import server cert into truststore
         echo -n "Waiting for User App to initialize..."
-        while ! grep -q contains <(docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -list -keystore /config/userapp/tomcat/conf/tomcat.ks -storepass $COMMON_PW 2>/dev/null) ; do 
+        while ! grep -q contains <(docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -list -keystore /config/userapp/tomcat/conf/tomcat.ks -storepass $COMMON_PW) ; do 
             echo -n "."; sleep 5; done; echo
         docker compose $COMPOSE_OPTS exec -it apps /opt/netiq/common/jre/bin/keytool -importkeystore -noprompt \
                 -srckeystore /config/userapp/tomcat/conf/tomcat.ks -srcstorepass "$COMMON_PW" \
@@ -420,8 +435,8 @@ if [[ $SERVICES =~ sspr ]];then
         docker compose $COMPOSE_OPTS cp ./config/silent.properties sspr:/config/
         docker compose $COMPOSE_OPTS start sspr || exit
         echo -n "Waiting for SSPR to initialize..."
-        while docker compose $COMPOSE_OPTS exec -it sspr bash -c "[ ! -f /config/SSPRConfiguration.xml ]" 2>/dev/null || \
-            ! docker compose $COMPOSE_OPTS exec -it sspr grep -q '</settings>' /config/SSPRConfiguration.xml 2>/dev/null ; do 
+        while docker compose $COMPOSE_OPTS exec -it sspr bash -c "[ ! -f /config/SSPRConfiguration.xml ]" || \
+            ! docker compose $COMPOSE_OPTS exec -it sspr grep -q '</settings>' /config/SSPRConfiguration.xml ; do 
         echo -n "."; sleep 5; 
         done; echo -e $DONE
         # Save the frist part of SSPR-generated SSPRConfiguration.xml to local file
@@ -449,7 +464,17 @@ if [[ $SERVICES =~ sspr ]];then
     fi
 fi
 
-echo "
+if [[ $SERVICES =~ mp_server ]];then
+    docker compose $COMPOSE_OPTS cp images/connid-connector-server/connector-ldap-3.9.3-SNAPSHOT.jar mp_server:/opt/midpoint/var/icf-connectors/ || exit
+    docker compose $COMPOSE_OPTS restart --no-deps mp_server || exit
+fi
+
+if [[ $SERVICES =~ mp_connid ]];then
+    docker compose $COMPOSE_OPTS cp images/connid-connector-server/connector-ldap-3.9.3-SNAPSHOT.jar mp_connid:/connid-connector-server/bundles || exit
+    docker compose $COMPOSE_OPTS start mp_connid || exit
+fi
+
+[[ $SERVICES =~ idv|idcon|iman|mail ]] && echo "
 The following services should soon be available for login as 'cn=admin,ou=sa,o=system' with password '$COMMON_PW' (use NDAP format for iMonitor/iManager):
 "
 [[ $SERVICES =~ idcon ]] && echo " ID Console ->	https://idcon.${DNS_DOMAIN}:$PORT_IDCON/identityconsole"
@@ -471,6 +496,11 @@ Designer requires a NAT mapping from the internal address $IP_IDV:$PORT_LDAPS to
 The Edirectory CA certificate for the $TREENAME tree can be found at $(pwd)/SSCert.pem to validate LDAP and iMonitor connections.
 "
 
+[[ $SERVICES =~ mp_server ]] && echo "
+Use 'administrator' with password '$DEFAULT_MP_ADMIN_PW' to log in to:
+
+ MidPoint   ->	http://mp.${DNS_DOMAIN}:$PORT_MP_SERV/
+"
 
 echo "Make sure to import $(pwd)/ca.crt as a trusted root CA certificate into your browser and add the following lines to /etc/hosts on your Docker host:
 "
