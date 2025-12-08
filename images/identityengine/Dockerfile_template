@@ -3,8 +3,8 @@
 #FROM ${VENDOR_REGISTRY}identityengine:idm-4.10.0-533
 #FROM ${VENDOR_REGISTRY}identityengine:idm-4.10.0.0100-15
 #FROM ${VENDOR_REGISTRY}identityengine:idm-4.10.0.0200-7
-#FROM ${VENDOR_REGISTRY}identityengine:idm-4.10.1-459 
-FROM ${VENDOR_REGISTRY}identityengine:idm-4.10.2-591 
+#FROM ${VENDOR_REGISTRY}identityengine:idm-4.10.1-459
+FROM ${VENDOR_REGISTRY}identityengine:idm-4.10.2-591
 USER root
 WORKDIR /
 
@@ -21,3 +21,5 @@ RUN microdnf -y install inotify-tools
 # forward setup log to docker log
 RUN sed -i -e '/^ *setIfVolumeConfigured *$/i tail -qFn0 /config/idm/log/idmconfigure.log 2>/dev/null &' /start.sh
 
+ADD startidm.sh /startidm.sh
+RUN chmod +x /startidm.sh

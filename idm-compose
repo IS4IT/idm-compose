@@ -1,4 +1,5 @@
 #!/bin/bash
+
 { # protect running script against edits
 
 PROGNAME=`basename $0`
@@ -141,6 +142,7 @@ elif [[ $COMMAND =~ wipe ]]; then
             if [[ $COMMAND_OPTS =~ -c|-fc|--config ]]; then 
                 rm -rfv $STACKDIR
                 sed -i '' -E -e "\|=$STACKDIR/|d" $PROGNAME.env
+                cat $PROGNAME.env
             fi
         fi
     fi
@@ -244,13 +246,14 @@ for file in $(ls *_template) $(find config images -name "*_template" -type f); d
 done
 
 # save stack options to stack dir for later use
-mkdir -p $STACKDIR
-echo "COMPOSE_PROFILES=$COMPOSE_PROFILES" > $STACKDIR/.env
+mkdir -pv $STACKDIR
+echo "COMPOSE_PROFILES=$COMPOSE_PROFILES" | tee $STACKDIR/.env
 mv -vf compose.yaml ${STACKDIR}
-echo "LAST_USED_STACK=$STACK" > $PROGNAME.env
-echo "COMPOSE_ENV_FILES=$STACKDIR/.env" >> $PROGNAME.env
-echo "COMPOSE_FILE=$STACKDIR/compose.yaml" >> $PROGNAME.env
+echo "LAST_USED_STACK=$STACK" | tee  $PROGNAME.env
+echo "COMPOSE_ENV_FILES=$STACKDIR/.env" | tee -a $PROGNAME.env
+echo "COMPOSE_FILE=$STACKDIR/compose.yaml" | tee -a $PROGNAME.env
 . $PROGNAME.env
+# COMPOSE_OPTS=${COMPOSE_OPTS//--project-directory . /--env-file $STACKDIR/.env}
 
 # validate compose file and command line options
 docker compose $COMPOSE_OPTS config -q || exit
