@@ -133,6 +133,7 @@ elif [[ $COMMAND =~ wipe ]]; then
             docker compose $COMPOSE_OPTS down --volumes --remove-orphans --rmi local
             if [[ $COMMAND_OPTS =~ -c|-fc|--config ]]; then 
                 rm -rfv $STACKDIR
+                sed -i '' -E -e "\|=$STACKDIR/|d" $PROGNAME.env
             fi
         fi
     fi
