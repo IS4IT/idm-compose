@@ -1,5 +1,5 @@
 #REPLACE_VARS: ${VENDOR_REGISTRY}
-FROM ${VENDOR_REGISTRY}identityapplication:idm-4.10.0-533
+FROM ${VENDOR_REGISTRY}identityapplication:idm-4.10.1-459
 USER root
 WORKDIR /
 
