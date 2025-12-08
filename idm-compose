@@ -247,6 +247,10 @@ done
 mkdir -p $STACKDIR
 echo "COMPOSE_PROFILES=$COMPOSE_PROFILES" > $STACKDIR/.env
 mv -vf compose.yaml ${STACKDIR}
+echo "LAST_USED_STACK=$STACK" > $PROGNAME.env
+echo "COMPOSE_ENV_FILES=$STACKDIR/.env" >> $PROGNAME.env
+echo "COMPOSE_FILE=$STACKDIR/compose.yaml" >> $PROGNAME.env
+. $PROGNAME.env
 
 # validate compose file and command line options
 docker compose $COMPOSE_OPTS config -q || exit
