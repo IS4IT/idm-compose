@@ -480,7 +480,7 @@ The following services should soon be available for login as 'cn=admin,ou=sa,o=s
 [[ $SERVICES =~ idcon ]] && echo " ID Console ->	https://idcon.${DNS_DOMAIN}:$PORT_IDCON/identityconsole"
 [[ $SERVICES =~ idv ]]   && echo " LDAP       ->	ldap://idv.${DNS_DOMAIN}:$PORT_LDAP" \
                          && echo "            ->	ldaps://idv.${DNS_DOMAIN}:$PORT_LDAPS" \
-                         && echo " iMonitor   ->	https://idv.${DNS_DOMAIN}:$PORT_IMON/nds"
+                         && echo " iMonitor   ->	https://idv.${DNS_DOMAIN}:$PORT_IMONS/nds"
 [[ $SERVICES =~ iman ]]  && echo " iManager   ->	https://iman.${DNS_DOMAIN}:$PORT_IMAN/nps"
 [[ $SERVICES =~ mail ]]  && echo " WebMail    ->	https://mail.${DNS_DOMAIN}:$PORT_MAIL"
 
