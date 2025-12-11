@@ -1,5 +1,5 @@
 #REPLACE_VARS: ${VENDOR_REGISTRY}
-FROM hub.is4it.de/vendor/netiq/idm/imanager:3.2.6-p3
+FROM ${VENDOR_REGISTRY}imanager:3.2.6-p3
 USER root
 WORKDIR /
 
