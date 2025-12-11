@@ -315,7 +315,7 @@ services:
   mp_server:
     <<: *common
     image: evolveum/midpoint:${MP_VER:-latest}-alpine
-    profiles: ["midpoint","all"]
+    profiles: ["midpoint"]
     hostname: mp
     depends_on:
       mp_init:
@@ -342,7 +342,7 @@ services:
   # mp_ninja:
   #   <<: *common
   #   image: evolveum/midpoint:${MP_VER:-latest}-alpine
-  #   profiles: ["midpoint","all"]
+  #   profiles: ["midpoint"]
   #   command: [ "tail", "-f", "/dev/null" ]
   #   depends_on:
   #     mp_data:
@@ -364,7 +364,7 @@ services:
   mp_connid:
     <<: *common
     image: is4it/connid-connector-server:1.6.0.0
-    profiles: ["midpoint","all"]
+    profiles: ["midpoint"]
     hostname: mp_connid
     networks:
       default:
@@ -373,7 +373,7 @@ services:
   mp_data:
     <<: *common
     image: postgres:17-alpine
-    profiles: ["midpoint","all"]
+    profiles: ["midpoint"]
     environment:
      - POSTGRES_PASSWORD=secret.db.pw.007
      - POSTGRES_USER=midpoint
@@ -388,7 +388,7 @@ services:
   mp_init:
     <<: *common
     image: evolveum/midpoint:${MP_VER:-latest}-alpine
-    profiles: ["midpoint","all"]
+    profiles: ["midpoint"]
     command: >
       bash -c "
       cd /opt/midpoint ;
