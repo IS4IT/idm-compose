@@ -63,6 +63,10 @@ while [[ -n "$1" ]]; do
             if [[ $2 =~ ^[0-9]+$ ]] && (( 1 <= $2 <= 63)) ; then
                 STACK="$2"
                 shift
+            elif [[ $2 == "ls" ]];then
+                echo "STACK                    PROFILES"
+                find stacks -name .env -exec echo -n {} \; -exec cut -d = -f 2 {} \; | sed -e 's:\.env:compose.yaml   :' | sort
+                exit
             fi
             ;;
         --help|-h|-\?) 
@@ -118,7 +122,7 @@ if [[ -z $COMMAND ]]; then
     docker compose $COMPOSE_OPTS
     exit $?
 elif [[ $COMMAND =~ stack ]]; then
-    echo "Using $COMPOSE_FILE with profile(s): $COMPOSE_PROFILES"
+    echo "Using $COMPOSE_FILE with profiles: $COMPOSE_PROFILES"
     exit
 elif [[ $COMMAND =~ wipe ]]; then
     if docker compose $COMPOSE_OPTS config -q; then
@@ -318,7 +322,7 @@ fi
 [[ $VENDOR_REGISTRY ]] && docker login $(cut -d/ -f1 <<< $VENDOR_REGISTRY)
 
 # start first batch of containers
-for service in $(grep -E 'db|iman|mq|rl|mail|mp_server' <<< "$SERVICES"); do
+for service in $(grep -E 'db|iman|mq|rl|mail|mp_server|mp_connid' <<< "$SERVICES"); do
     docker compose $COMPOSE_OPTS start $service
 done
 
@@ -463,16 +467,6 @@ if [[ $SERVICES =~ sspr ]];then
         # The following should import the http server key/cert but always fails with error "application lock could not be obtained":
         #docker compose $COMPOSE_OPTS exec -it sspr /app/command.sh ImportHttpsKeyStore /config/data/keys.pfx PKCS12 tomcat "$COMMON_PW"
     fi
-fi
-
-if [[ $SERVICES =~ mp_server ]];then
-    docker compose $COMPOSE_OPTS cp images/connid-connector-server/connector-ldap-3.9.3-SNAPSHOT.jar mp_server:/opt/midpoint/var/icf-connectors/ || exit
-    docker compose $COMPOSE_OPTS restart --no-deps mp_server || exit
-fi
-
-if [[ $SERVICES =~ mp_connid ]];then
-    docker compose $COMPOSE_OPTS cp images/connid-connector-server/connector-ldap-3.9.3-SNAPSHOT.jar mp_connid:/connid-connector-server/bundles || exit
-    docker compose $COMPOSE_OPTS start mp_connid || exit
 fi
 
 [[ $SERVICES =~ idv|idcon|iman|mail ]] && echo "
