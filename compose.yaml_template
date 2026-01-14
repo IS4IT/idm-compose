@@ -314,7 +314,7 @@ services:
 
   mp_server:
     <<: *common
-    image: evolveum/midpoint:${MP_VER:-latest}-alpine
+    image: evolveum/midpoint:${MP_VER:-latest}
     profiles: ["midpoint"]
     hostname: mp
     depends_on:
@@ -341,7 +341,7 @@ services:
 
   # mp_ninja:
   #   <<: *common
-  #   image: evolveum/midpoint:${MP_VER:-latest}-alpine
+  #   image: evolveum/midpoint:${MP_VER:-latest}
   #   profiles: ["midpoint"]
   #   command: [ "tail", "-f", "/dev/null" ]
   #   depends_on:
@@ -387,7 +387,7 @@ services:
 
   mp_init:
     <<: *common
-    image: evolveum/midpoint:${MP_VER:-latest}-alpine
+    image: evolveum/midpoint:${MP_VER:-latest}
     profiles: ["midpoint"]
     command: >
       bash -c "
