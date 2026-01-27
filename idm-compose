@@ -490,6 +490,18 @@ if [[ $SERVICES =~ sspr ]];then
     fi
 fi
 
+if [[ $SERVICES =~ kc_server ]];then
+    echo -n "Waiting for Keycloak to initialize..."
+    while ! grep -qE "Keycloak .* started .* Listening" <(docker compose $COMPOSE_OPTS logs kc_server) ; do 
+        echo -n "."; sleep 5; done
+    echo
+    docker compose $COMPOSE_OPTS exec -it kc_server /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user init-admin
+    docker compose $COMPOSE_OPTS exec -it kc_server /opt/keycloak/bin/kcadm.sh create users -r master -s username=administrator -s enabled=true
+    docker compose $COMPOSE_OPTS exec -it kc_server /opt/keycloak/bin/kcadm.sh set-password -r master --username administrator --new-password "$KC_DEFAULT_ADMIN_PW"
+    docker compose $COMPOSE_OPTS exec -it kc_server /opt/keycloak/bin/kcadm.sh add-roles --uusername administrator  --rolename admin --rolename default-roles-master 
+fi
+
+
 [[ $SERVICES =~ idv|idcon|iman|mail ]] && echo "
 The following services should soon be available for login as 'cn=admin,ou=sa,o=system' with password '$COMMON_PW' (use NDAP format for iMonitor/iManager):
 "

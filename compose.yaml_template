@@ -431,9 +431,9 @@ services:
       KC_DB_URL_HOST: kc_data
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: helloKeycloak
-      # Temporärer Admin für Ersteinrichtung
-      KC_BOOTSTRAP_ADMIN_USERNAME: administrator
+      KC_BOOTSTRAP_ADMIN_USERNAME: init-admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: $KC_DEFAULT_ADMIN_PW
+      KC_CLI_PASSWORD: $KC_DEFAULT_ADMIN_PW
       KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/server.crt
       KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/server.key
     ports:
