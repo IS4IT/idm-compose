@@ -1,0 +1,6 @@
+#REPLACE_VARS: ${KC_VER} ${DNS_DOMAIN}
+FROM quay.io/keycloak/keycloak:${KC_VER}
+
+ADD --chown=keycloak:keycloak server.${DNS_DOMAIN}.key /opt/keycloak/conf/server.key
+
+ADD --chown=keycloak:keycloak server.${DNS_DOMAIN}.crt /opt/keycloak/conf/server.crt

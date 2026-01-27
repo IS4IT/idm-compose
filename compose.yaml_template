@@ -326,7 +326,7 @@ services:
     ports:
       - $PORT_MP_SERV:8080
     environment:
-     - MP_SET_midpoint_administrator_initialPassword=T3stPw890uio
+     - MP_SET_midpoint_administrator_initialPassword=$KC_DEFAULT_ADMIN_PW
      - MP_SET_midpoint_repository_jdbcUsername=midpoint
      - MP_SET_midpoint_repository_jdbcPassword=secret.db.pw.007
      - MP_SET_midpoint_repository_jdbcUrl=jdbc:postgresql://mp_data:5432/midpoint
@@ -348,7 +348,7 @@ services:
   #     mp_data:
   #       condition: service_started
   #   environment:
-  #    - MP_SET_midpoint_administrator_initialPassword=T3stPw890uio
+  #    - MP_SET_midpoint_administrator_initialPassword=$KC_DEFAULT_ADMIN_PW
   #    - MP_SET_midpoint_repository_jdbcUsername=midpoint
   #    - MP_SET_midpoint_repository_jdbcPassword=secret.db.pw.007
   #    - MP_SET_midpoint_repository_jdbcUrl=jdbc:postgresql://mp_data:5432/midpoint
@@ -416,6 +416,45 @@ services:
         ipv4_address: $IP_MP_INIT
     volumes:
      - mp_home:/opt/midpoint/var
+ 
+  kc_server:
+    #image: quay.io/keycloak/keycloak:${KC_VER:-latest}
+    build:
+      context: images/keycloak
+    profiles: ["keycloak","all"]
+    # start-dev, nicht in Produktivumgebungen
+    command: start-dev
+    depends_on:
+      - kc_data
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: kc_data
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: helloKeycloak
+      # Temporärer Admin für Ersteinrichtung
+      KC_BOOTSTRAP_ADMIN_USERNAME: administrator
+      KC_BOOTSTRAP_ADMIN_PASSWORD: $KC_DEFAULT_ADMIN_PW
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/server.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/server.key
+    ports:
+      - "$PORT_KC_SERV:8443"
+    networks:
+      default:
+        ipv4_address: $IP_KC_SERV
+
+  kc_data:
+    image: postgres:${KC_VER_DB:-18-alpine}
+    profiles: ["keycloak","all"]
+    restart: unless-stopped
+    volumes:
+      - kc_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: helloKeycloak
+    networks:
+      default:
+        ipv4_address: $IP_KC_DATA
 
 networks:
   default:
@@ -436,3 +475,4 @@ volumes:
   mp_home:
   mp_data:
   mp_backup:
+  kc_data:

@@ -76,6 +76,9 @@ while [[ -n "$1" ]]; do
                 COMPOSE_OPTS="$COMPOSE_OPTS $1"
             fi
             ;;
+        --debug)
+            set -x
+            ;;
         *)
             if [[ $COMMAND ]]; then
                 COMMAND_OPTS="$COMMAND_OPTS $1"
@@ -195,6 +198,9 @@ export IP_MP_DATA=${IP_MP_DATA:-$NET.21}
 export IP_MP_INIT=${IP_MP_INIT:-$NET.22}
 export IP_MP_CONNID=${IP_MP_CONNID:-$NET.23}
 
+export IP_KC_SERV=${IP_KC_SERV:-$NET.30}
+export IP_KC_DATA=${IP_KC_DATA:-$NET.31}
+
 export PORT_SMTP=${PORT_SMTP:-$((PORT_BASE + 25))}
 export PORT_MAIL=${PORT_MAIL:-$((PORT_BASE + 447))}
 export PORT_LDAP=${PORT_LDAP:-$((PORT_BASE + 389))}
@@ -210,8 +216,13 @@ export PORT_FORMS=${PORT_FORMS:-$((PORT_BASE + 446))}
 export PORT_DB=${PORT_DB:-$((PORT_BASE + 532))}
 export PORT_MP_SERV=${PORT_MP_SERV:-$((PORT_BASE + 180))}
 export PORT_MP_DATA=${PORT_MP_DATA:-$((PORT_BASE + 132))}
+export PORT_KC_SERV=${PORT_KC_SERV:-$((PORT_BASE + 543))}
 
-[[ $MP_VER ]] && export MP_VER
+export MP_VER=${MP_VER:-latest}
+export MP_DEFAULT_ADMIN_PW
+
+export KC_VER=${KC_VER:-latest}
+export KC_DEFAULT_ADMIN_PW
 
 GREEN='\033[0;32m'
 RESET='\033[0m'
@@ -304,6 +315,10 @@ if [[ $SERVICES =~ mail ]];then
     mv -v config/mail/smtp.ldif config/idm/mountfiles/
 fi
 
+if [[ $SERVICES =~ kc_server ]];then
+    cp -v server.${DNS_DOMAIN}.crt server.${DNS_DOMAIN}.key images/keycloak/
+fi
+
 # create containers, networks and volumes
 [[ $COMPOSE_BAKE ]] && export COMPOSE_BAKE
 docker compose $COMPOSE_OPTS create --build --no-recreate --remove-orphans || exit
@@ -318,11 +333,17 @@ if [[ $SERVICES =~ db ]] && [[ ! $(docker compose $COMPOSE_OPTS ps --services) =
     docker compose $COMPOSE_OPTS cp ./config/data/init.sql db:/docker-entrypoint-initdb.d/ || exit
 fi
 
+# if [[ $SERVICES =~ kc ]];then
+#     docker compose $COMPOSE_OPTS cp server.${DNS_DOMAIN}.crt kc:/opt/keycloak/conf/server.crt || exit
+#     docker compose $COMPOSE_OPTS cp server.${DNS_DOMAIN}.key kc:/opt/keycloak/conf/server.key || exit
+#     docker compose $COMPOSE_OPTS exec -it kc chmod -v keycloak:keycloak /opt/keycloak/conf/server.*
+# fi
+
 # login to registry if used
 [[ $VENDOR_REGISTRY ]] && docker login $(cut -d/ -f1 <<< $VENDOR_REGISTRY)
 
 # start first batch of containers
-for service in $(grep -E 'db|iman|mq|rl|mail|mp_server|mp_connid' <<< "$SERVICES"); do
+for service in $(grep -E 'db|iman|mq|rl|mail|mp_server|mp_connid|kc_server' <<< "$SERVICES"); do
     docker compose $COMPOSE_OPTS start $service
 done
 
@@ -492,14 +513,19 @@ The Edirectory CA certificate for the $TREENAME tree can be found at $(pwd)/SSCe
 "
 
 [[ $SERVICES =~ mp_server ]] && echo "
-Use 'administrator' with password '$DEFAULT_MP_ADMIN_PW' to log in to:
+Use 'administrator' with password '$MP_DEFAULT_ADMIN_PW' to log in to:
 
  MidPoint   ->	http://mp.${DNS_DOMAIN}:$PORT_MP_SERV/
+"
+[[ $SERVICES =~ kc_server ]] && echo "
+Use 'administrator' with password '$KC_DEFAULT_ADMIN_PW' to log in to:
+
+ Keycloak   ->	https://kc.${DNS_DOMAIN}:$PORT_KC_SERV/
 "
 
 echo "Make sure to import $(pwd)/ca.crt as a trusted root CA certificate into your browser and add the following lines to /etc/hosts on your Docker host:
 "
-sed -E "s/(.*)/127.0.0.1\t\1.${DNS_DOMAIN}/" <<< "$SERVICES" | grep -vE 'mp_(init|data|connid|ninja)' | sed -e 's/mp_server/mp/'
+sed -E "s/(.*)/127.0.0.1\t\1.${DNS_DOMAIN}/" <<< "$SERVICES" | grep -vE 'mp_(init|data|connid|ninja)|kc_data' | sed -e 's/_server//'
 echo
 
 exit $? # protect running script against appends
