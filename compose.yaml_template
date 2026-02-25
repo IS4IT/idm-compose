@@ -314,8 +314,13 @@ services:
 
   mp_server:
     <<: *common
-    image: evolveum/midpoint:${MP_VER:-latest}
-    profiles: ["midpoint"]
+    #image: evolveum/midpoint:${MP_VER:-latest}
+    build:
+      context: images/midpoint
+      platforms: 
+        - "linux/amd64"
+    platform: linux/amd64
+    profiles: ["midpoint","all"]
     hostname: mp
     depends_on:
       mp_init:
@@ -324,13 +329,21 @@ services:
         condition: service_started
     command: [ "/opt/midpoint/bin/midpoint.sh", "container" ]
     ports:
-      - $PORT_MP_SERV:8080
+      - $PORT_MP_SERV:8443
     environment:
      - MP_SET_midpoint_administrator_initialPassword=$KC_DEFAULT_ADMIN_PW
      - MP_SET_midpoint_repository_jdbcUsername=midpoint
      - MP_SET_midpoint_repository_jdbcPassword=secret.db.pw.007
      - MP_SET_midpoint_repository_jdbcUrl=jdbc:postgresql://mp_data:5432/midpoint
      - MP_SET_midpoint_repository_database=postgresql
+     - MP_SET_server_port=8443
+     - MP_SET_server_ssl_enabled=true
+     - MP_SET_server_ssl_keyStoreType=PKCS12
+     - MP_SET_server_ssl_key-store=/opt/certs/keys.pfx
+     - MP_SET_server_ssl_key-store-password=n0v3ll
+     - MP_SET_server_ssl_key-alias=tomcat
+     - MP_SET_server_ssl_trust-store=/opt/certs/keys.pfx
+     - MP_SET_server_ssl_trust-store-password=n0v3ll
      - MP_UNSET_midpoint_repository_hibernateHbm2ddl=1
      - MP_NO_ENV_COMPAT=1
     networks:

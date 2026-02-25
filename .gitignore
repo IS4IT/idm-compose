@@ -24,3 +24,7 @@ config/idm/mountfiles/import.sh
 config/mail/smtp.ldif
 stacks
 idm-compose.env
+config/data/init.sql
+config/data/keys.*pfx
+config/data/silent.properties
+images/midpoint/keys.pfx

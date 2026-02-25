@@ -216,7 +216,7 @@ export PORT_OSP=${PORT_OSP:-$((PORT_BASE + 444))}
 export PORT_SSPR=${PORT_SSPR:-$((PORT_BASE + 445))}
 export PORT_FORMS=${PORT_FORMS:-$((PORT_BASE + 446))}
 export PORT_DB=${PORT_DB:-$((PORT_BASE + 532))}
-export PORT_MP_SERV=${PORT_MP_SERV:-$((PORT_BASE + 180))}
+export PORT_MP_SERV=${PORT_MP_SERV:-$((PORT_BASE + 143))}
 export PORT_MP_DATA=${PORT_MP_DATA:-$((PORT_BASE + 132))}
 export PORT_KC_SERV=${PORT_KC_SERV:-$((PORT_BASE + 543))}
 
@@ -295,6 +295,7 @@ fi
 
 # Print server certificate details
 cp -v ./config/data/keys.${DNS_DOMAIN}.pfx ./config/data/keys.pfx
+cp -v ./config/data/keys.${DNS_DOMAIN}.pfx ./images/midpoint/keys.pfx
 keytool -J-Duser.language=en -list -keystore config/data/keys.pfx -storepass "$COMMON_PW" | grep -E 'contains|Entry'
 openssl x509 -in config/data/keys.pfx -passin pass:$COMMON_PW -text -noout | grep -E 'Not|local' | sed "s/  */ /g"
 
@@ -534,7 +535,7 @@ The Edirectory CA certificate for the $TREENAME tree can be found at $(pwd)/SSCe
 [[ $SERVICES =~ mp_server ]] && echo "
 Use 'administrator' with password '$MP_DEFAULT_ADMIN_PW' to log in to:
 
- MidPoint   ->	http://mp.${DNS_DOMAIN}:$PORT_MP_SERV/
+ MidPoint   ->	https://mp.${DNS_DOMAIN}:$PORT_MP_SERV/
 "
 [[ $SERVICES =~ kc_server ]] && echo "
 Use 'administrator' with password '$KC_DEFAULT_ADMIN_PW' to log in to:
