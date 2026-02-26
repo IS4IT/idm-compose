@@ -329,14 +329,14 @@ services:
         condition: service_started
     command: [ "/opt/midpoint/bin/midpoint.sh", "container" ]
     ports:
-      - $PORT_MP_SERV:8443
+      - $PORT_MP_SERV:$PORT_MP_SERV
     environment:
      - MP_SET_midpoint_administrator_initialPassword=$KC_DEFAULT_ADMIN_PW
      - MP_SET_midpoint_repository_jdbcUsername=midpoint
      - MP_SET_midpoint_repository_jdbcPassword=secret.db.pw.007
      - MP_SET_midpoint_repository_jdbcUrl=jdbc:postgresql://mp_data:5432/midpoint
      - MP_SET_midpoint_repository_database=postgresql
-     - MP_SET_server_port=8443
+     - MP_SET_server_port=$PORT_MP_SERV
      - MP_SET_server_ssl_enabled=true
      - MP_SET_server_ssl_keyStoreType=PKCS12
      - MP_SET_server_ssl_key-store=/opt/certs/keys.pfx
@@ -416,8 +416,6 @@ services:
       "
     depends_on:
      - mp_data
-    ports:
-      - $PORT_MP_DATA:5432
     environment:
      - MP_SET_midpoint_repository_jdbcUsername=midpoint
      - MP_SET_midpoint_repository_jdbcPassword=secret.db.pw.007
