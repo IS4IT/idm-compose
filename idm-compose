@@ -153,7 +153,7 @@ elif [[ $COMMAND =~ init ]] && [ ! -f compose.yaml_template ]; then
 fi
 
 # check init requirements
-for command in openssl docker sed envsubst find cut tr keytool cut zip; do
+for command in openssl docker sed envsubst find cut tr keytool cut zip tee grep; do
     if ! which $command >/dev/null ; then echo "$command not found, exiting..."; exit 1 ; fi
 done
 
@@ -509,6 +509,7 @@ if [[ $SERVICES =~ sspr ]];then
     fi
 fi
 
+{
 [[ $SERVICES =~ idv|idcon|iman|mail ]] && echo "
 The following services should soon be available for login as 'cn=admin,ou=sa,o=system' with password '$COMMON_PW' (use NDAP format for iMonitor/iManager):
 "
@@ -546,6 +547,7 @@ echo "Make sure to import $(pwd)/ca.crt as a trusted root CA certificate into yo
 "
 sed -E "s/(.*)/127.0.0.1\t\1.${DNS_DOMAIN}/" <<< "$SERVICES" | grep -vE 'mp_(init|data|connid|ninja)|kc_data' | sed -e 's/_server//'
 echo
+} | tee $STACKDIR/Readme.txt
 
 exit $? # protect running script against appends
 } 
