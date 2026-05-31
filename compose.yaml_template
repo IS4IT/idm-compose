@@ -314,9 +314,9 @@ services:
 
   mp_server:
     <<: *common
-    image: evolveum/midpoint:${MP_VER:-latest}
-    #build:
-    #  context: images/midpoint
+    #image: evolveum/midpoint:${MP_VER:-latest}
+    build:
+      context: images/midpoint
     #  platforms: 
     #    - "linux/amd64"
     #platform: linux/amd64
