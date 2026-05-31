@@ -1,0 +1,5 @@
+#REPLACE_VARS: ${MP_VER}
+FROM evolveum/midpoint:${MP_VER}
+
+RUN mkdir -p /opt/certs/
+ADD keys.pfx /opt/certs/
